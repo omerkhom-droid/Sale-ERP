@@ -1,0 +1,43 @@
+<?php
+
+namespace App\Http\Requests;
+
+use Illuminate\Foundation\Http\FormRequest;
+
+class StoreSupplierRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        return true;
+    }
+
+    public function rules(): array
+    {
+        return [
+            'supplier_code' => ['required', 'string', 'max:100', 'unique:suppliers,supplier_code'],
+            'supplier_name' => ['required', 'string', 'max:255'],
+            'supplier_type' => ['required', 'in:individual,company'],
+
+            'phone' => ['nullable', 'string', 'max:50'],
+            'email' => ['nullable', 'email', 'max:255'],
+
+            'tax_number' => ['nullable', 'digits:15'],
+            'commercial_register' => ['nullable', 'string', 'max:20'],
+
+            'country_code' => ['nullable', 'string', 'max:10'],
+            'state' => ['nullable', 'string', 'max:255'],
+            'city' => ['nullable', 'string', 'max:255'],
+            'district' => ['nullable', 'string', 'max:255'],
+            'street_name' => ['nullable', 'string', 'max:255'],
+            'building_number' => ['nullable', 'string', 'max:10'],
+            'additional_number' => ['nullable', 'string', 'max:10'],
+            'postal_code' => ['nullable', 'string', 'max:10'],
+
+            'address' => ['nullable', 'string'],
+
+            'opening_balance' => ['required', 'numeric', 'min:0'],
+            'balance_type' => ['required', 'in:debit,credit'],
+            'is_active' => ['required', 'boolean'],
+        ];
+    }
+}
