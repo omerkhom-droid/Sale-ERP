@@ -168,6 +168,16 @@ class SalesReturnService
             $invoice = SalesInvoice::lockForUpdate()
                 ->findOrFail($salesReturn->sales_invoice_id);
 
+            if ($invoice->status !== 'posted') {
+                throw new Exception('الفاتورة الأصلية غير مرحلة.');
+            }
+            app(SalesDocumentBalanceService::class)->refresh($invoice);
+            $applied = min((float) $salesReturn->total_amount, (float) $invoice->remaining_amount);
+            $salesReturn->update([
+                'applied_amount' => round($applied, 2),
+                'refundable_amount' => round((float) $salesReturn->total_amount - $applied, 2),
+            ]);
+
             app(InventoryGuardService::class)->assertDateAfterLastPostedInventoryCount(
                 warehouseId: (int) $salesReturn->warehouse_id,
                 documentDate: $salesReturn->return_date,
@@ -197,6 +207,27 @@ class SalesReturnService
                 'posted_at' => now(),
                 'posted_by' => auth()->id(),
             ]);
+
+            app(\App\Services\AuditLogService::class)->log(
+                action: 'post',
+                module: 'Sales Return',
+                description: 'تم ترحيل مردود مبيعات رقم ' . $salesReturn->return_no,
+                model: $salesReturn,
+                newValues: [
+                    'return_no' => $salesReturn->return_no,
+                    'sales_invoice_id' => $salesReturn->sales_invoice_id,
+                    'customer_id' => $salesReturn->customer_id,
+                    'branch_id' => $salesReturn->branch_id,
+                    'warehouse_id' => $salesReturn->warehouse_id,
+                    'return_date' => $salesReturn->return_date,
+                    'total_amount' => $salesReturn->total_amount,
+                    'total_cost' => $salesReturn->total_cost,
+                    'applied_amount' => $salesReturn->applied_amount,
+                    'refundable_amount' => $salesReturn->refundable_amount,
+                    'status' => $salesReturn->status,
+                ],
+                branchId: $salesReturn->branch_id
+            );
 
             return $salesReturn->fresh([
                 'salesInvoice',
@@ -241,6 +272,26 @@ class SalesReturnService
                     'cancel_reason' => $reason,
                 ]);
 
+                app(\App\Services\AuditLogService::class)->log(
+                    action: 'cancel',
+                    module: 'Sales Return',
+                    description: 'تم إلغاء مردود مبيعات مسودة رقم ' . $salesReturn->return_no,
+                    model: $salesReturn,
+                    oldValues: [
+                        'status' => 'draft',
+                        'return_no' => $salesReturn->return_no,
+                        'sales_invoice_id' => $salesReturn->sales_invoice_id,
+                        'customer_id' => $salesReturn->customer_id,
+                        'total_amount' => $salesReturn->total_amount,
+                    ],
+                    newValues: [
+                        'status' => 'cancelled',
+                        'cancel_reason' => $reason,
+                        'cancelled_at' => now(),
+                    ],
+                    branchId: $salesReturn->branch_id
+                );
+                
                 return $salesReturn->fresh();
             }
 
@@ -277,6 +328,28 @@ class SalesReturnService
                 'cancelled_by' => auth()->id(),
                 'cancel_reason' => $reason,
             ]);
+
+            app(\App\Services\AuditLogService::class)->log(
+                action: 'cancel',
+                module: 'Sales Return',
+                description: 'تم إلغاء مردود مبيعات مرحل رقم ' . $salesReturn->return_no,
+                model: $salesReturn,
+                oldValues: [
+                    'status' => 'posted',
+                    'return_no' => $salesReturn->return_no,
+                    'sales_invoice_id' => $salesReturn->sales_invoice_id,
+                    'customer_id' => $salesReturn->customer_id,
+                    'warehouse_id' => $salesReturn->warehouse_id,
+                    'total_amount' => $salesReturn->total_amount,
+                    'total_cost' => $salesReturn->total_cost,
+                ],
+                newValues: [
+                    'status' => 'cancelled',
+                    'cancel_reason' => $reason,
+                    'cancelled_at' => now(),
+                ],
+                branchId: $salesReturn->branch_id
+            );
 
             return $salesReturn->fresh([
                 'salesInvoice',
@@ -544,7 +617,7 @@ class SalesReturnService
         );
 
         $netInvoiceAmount = round(
-            (float) $invoice->total_amount - $newReturnedAmount,
+            app(SalesDocumentBalanceService::class)->netAmount($invoice, $salesReturn->id) - (float) $salesReturn->applied_amount,
             2
         );
 
@@ -587,7 +660,7 @@ class SalesReturnService
         }
 
         $netInvoiceAmount = round(
-            (float) $invoice->total_amount - $newReturnedAmount,
+            app(SalesDocumentBalanceService::class)->netAmount($invoice, $salesReturn->id),
             2
         );
 

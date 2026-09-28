@@ -126,6 +126,8 @@ class CustomerReceiptVoucherService
 
                 $amount = round((float) $allocation->amount, 2);
 
+                app(SalesDocumentBalanceService::class)->refresh($invoice);
+
                 if ($amount > (float) $invoice->remaining_amount) {
                     throw new Exception(
                         'مبلغ السداد أكبر من المتبقي على الفاتورة رقم: ' . $invoice->invoice_no
@@ -133,7 +135,8 @@ class CustomerReceiptVoucherService
                 }
 
                 $newPaid = round((float) $invoice->paid_amount + $amount, 2);
-                $newRemaining = round((float) $invoice->total_amount - $newPaid, 2);
+                $netAmount = app(SalesDocumentBalanceService::class)->netAmount($invoice);
+                $newRemaining = round($netAmount - $newPaid, 2);
 
                 if ($newRemaining < 0) {
                     $newRemaining = 0;
@@ -142,7 +145,7 @@ class CustomerReceiptVoucherService
                 $invoice->update([
                     'paid_amount' => $newPaid,
                     'remaining_amount' => $newRemaining,
-                    'payment_status' => $this->paymentStatus($newPaid, (float) $invoice->total_amount),
+                    'payment_status' => $this->paymentStatus($newPaid, $netAmount),
                 ]);
             }
 
@@ -153,6 +156,26 @@ class CustomerReceiptVoucherService
                 'posted_at' => now(),
                 'posted_by' => auth()->id(),
             ]);
+
+            app(\App\Services\AuditLogService::class)->log(
+                action: 'post',
+                module: 'Customer Receipt Voucher',
+                description: 'تم ترحيل سند قبض عميل رقم ' . $voucher->voucher_no,
+                model: $voucher,
+                newValues: [
+                    'voucher_no' => $voucher->voucher_no,
+                    'customer_id' => $voucher->customer_id,
+                    'branch_id' => $voucher->branch_id,
+                    'cost_center_id' => $voucher->cost_center_id,
+                    'receipt_date' => $voucher->receipt_date,
+                    'payment_method' => $voucher->payment_method,
+                    'amount' => $voucher->amount,
+                    'allocated_amount' => $voucher->allocated_amount,
+                    'unallocated_amount' => $voucher->unallocated_amount,
+                    'status' => $voucher->status,
+                ],
+                branchId: $voucher->branch_id
+            );
 
             return $voucher->fresh([
                 'customer',
@@ -193,6 +216,26 @@ class CustomerReceiptVoucherService
                     'cancel_reason' => $reason,
                 ]);
 
+                app(\App\Services\AuditLogService::class)->log(
+                    action: 'cancel',
+                    module: 'Customer Receipt Voucher',
+                    description: 'تم إلغاء سند قبض عميل مسودة رقم ' . $voucher->voucher_no,
+                    model: $voucher,
+                    oldValues: [
+                        'status' => 'draft',
+                        'voucher_no' => $voucher->voucher_no,
+                        'customer_id' => $voucher->customer_id,
+                        'amount' => $voucher->amount,
+                        'allocated_amount' => $voucher->allocated_amount,
+                    ],
+                    newValues: [
+                        'status' => 'cancelled',
+                        'cancel_reason' => $reason,
+                        'cancelled_at' => now(),
+                    ],
+                    branchId: $voucher->branch_id
+                );
+
                 return $voucher->fresh();
             }
 
@@ -209,7 +252,8 @@ class CustomerReceiptVoucherService
                     $newPaid = 0;
                 }
 
-                $newRemaining = round((float) $invoice->total_amount - $newPaid, 2);
+                $netAmount = app(SalesDocumentBalanceService::class)->netAmount($invoice);
+                $newRemaining = round($netAmount - $newPaid, 2);
 
                 if ($newRemaining < 0) {
                     $newRemaining = 0;
@@ -218,7 +262,7 @@ class CustomerReceiptVoucherService
                 $invoice->update([
                     'paid_amount' => $newPaid,
                     'remaining_amount' => $newRemaining,
-                    'payment_status' => $this->paymentStatus($newPaid, (float) $invoice->total_amount),
+                    'payment_status' => $this->paymentStatus($newPaid, $netAmount),
                 ]);
             }
 
@@ -240,6 +284,26 @@ class CustomerReceiptVoucherService
                 'cancelled_by' => auth()->id(),
                 'cancel_reason' => $reason,
             ]);
+
+            app(\App\Services\AuditLogService::class)->log(
+                action: 'cancel',
+                module: 'Customer Receipt Voucher',
+                description: 'تم إلغاء سند قبض عميل مرحل رقم ' . $voucher->voucher_no,
+                model: $voucher,
+                oldValues: [
+                    'status' => 'posted',
+                    'voucher_no' => $voucher->voucher_no,
+                    'customer_id' => $voucher->customer_id,
+                    'amount' => $voucher->amount,
+                    'allocated_amount' => $voucher->allocated_amount,
+                ],
+                newValues: [
+                    'status' => 'cancelled',
+                    'cancel_reason' => $reason,
+                    'cancelled_at' => now(),
+                ],
+                branchId: $voucher->branch_id
+            );
 
             return $voucher->fresh([
                 'customer',
@@ -334,6 +398,8 @@ class CustomerReceiptVoucherService
 
     private function paymentStatus(float $paidAmount, float $totalAmount): string
     {
+        if ($totalAmount <= 0) { return 'paid'; }
+
         if ($paidAmount <= 0) {
             return 'unpaid';
         }

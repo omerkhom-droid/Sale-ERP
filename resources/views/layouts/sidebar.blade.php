@@ -336,7 +336,15 @@
                     <a href="{{ route('sales-returns.index') }}"
                        class="sidebar-link {{ request()->routeIs('sales-returns.*') ? 'active' : '' }}">
                         <i class="fa-solid fa-rotate-left sidebar-icon"></i> {{-- مردودات المبيعات --}}
-                        <span>مردودات المبيعات</span>
+                        <span>الإشعارات  الدائنة </span>
+                    </a>
+                @endcan
+
+                @can('sales_debit_notes.view')
+                    <a href="{{ route('sales-debit-notes.index') }}"
+                       class="sidebar-link {{ request()->routeIs('sales-debit-notes.*') ? 'active' : '' }}">
+                        <i class="fa-solid fa-rotate-left sidebar-icon"></i> {{-- مردودات المبيعات --}}
+                        <span>الإشعارات المدينة</span>
                     </a>
                 @endcan
 

@@ -823,6 +823,7 @@ Route::middleware(['auth', 'active.user', 'branch.access', 'license.valid'])->gr
         ->middleware('permission:sales_returns.print')
         ->name('sales-returns.print');
 
+    require __DIR__ . '/sales-debit-notes.php';
 
     /*
     |--------------------------------------------------------------------------

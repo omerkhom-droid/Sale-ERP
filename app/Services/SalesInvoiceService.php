@@ -11,6 +11,8 @@ use App\Models\ProductUnit;
 use App\Models\SalesInvoice;
 use App\Models\SalesInvoiceItem;
 use App\Models\JournalEntry;
+use App\Services\Zatca\ZatcaSalesInvoiceSubmissionService;
+use App\Models\ZatcaDevice;
 
 use Exception;
 use Illuminate\Support\Facades\DB;
@@ -18,7 +20,8 @@ use Illuminate\Support\Facades\DB;
 class SalesInvoiceService
 {
     public function __construct(
-        private JournalEntryService $journalEntryService
+        private JournalEntryService $journalEntryService,
+        private ZatcaSalesInvoiceSubmissionService $zatcaSubmissionService
     ) {
     }
 
@@ -110,10 +113,50 @@ class SalesInvoiceService
                 'customer_id' => $customer?->id,
                 'customer_type' => $data['customer_type'] ?? 'cash',
 
-                'customer_name' => $customerData['customer_name'],
-                'customer_mobile' => $customerData['customer_mobile'],
-                'customer_tax_number' => $customerData['customer_tax_number'],
-                'customer_address' => $customerData['customer_address'],
+                'invoice_classification' =>
+                    $data['invoice_classification'] ?? 'simplified',
+
+                'customer_name' =>
+                    $customerData['customer_name'],
+
+                'customer_mobile' =>
+                    $customerData['customer_mobile'],
+
+                'customer_email' =>
+                    $customerData['customer_email'],
+
+                'customer_tax_number' =>
+                    $customerData['customer_tax_number'],
+
+                'customer_commercial_register' =>
+                    $customerData['customer_commercial_register'],
+
+                'customer_country_code' =>
+                    $customerData['customer_country_code'],
+
+                'customer_state' =>
+                    $customerData['customer_state'],
+
+                'customer_city' =>
+                    $customerData['customer_city'],
+
+                'customer_district' =>
+                    $customerData['customer_district'],
+
+                'customer_street_name' =>
+                    $customerData['customer_street_name'],
+
+                'customer_building_number' =>
+                    $customerData['customer_building_number'],
+
+                'customer_additional_number' =>
+                    $customerData['customer_additional_number'],
+
+                'customer_postal_code' =>
+                    $customerData['customer_postal_code'],
+
+                'customer_address' =>
+                    $customerData['customer_address'],
 
                 'payment_type' => $paymentType,
                 'payment_method' => $paidAmount > 0
@@ -207,67 +250,102 @@ class SalesInvoiceService
     */
     public function post(SalesInvoice $invoice): SalesInvoice
     {
-        return DB::transaction(function () use ($invoice) {
+        $postedInvoice = DB::transaction(
+            function () use ($invoice) {
 
-            $invoice = SalesInvoice::with([
+                $invoice = SalesInvoice::with([
+                        'items.product',
+                        'items.productUnit.unit',
+                        'costCenter',
+                    ])
+                    ->lockForUpdate()
+                    ->findOrFail($invoice->id);
+
+                if ($invoice->status === 'posted') {
+                    throw new Exception('الفاتورة مرحلة مسبقاً.');
+                }
+
+                if ($invoice->status === 'cancelled') {
+                    throw new Exception('لا يمكن ترحيل فاتورة ملغاة.');
+                }
+
+                /*
+                    التأكد من توفر كل الأصناف قبل خصم أي كمية.
+                */
+                foreach ($invoice->items as $item) {
+                    $this->validateStockAvailable(
+                        productId: (int) $item->product_id,
+                        warehouseId: (int) $invoice->warehouse_id,
+                        requiredQuantity: (float) $item->base_quantity
+                    );
+                }
+
+                /*
+                    خصم المخزون.
+                */
+                foreach ($invoice->items as $item) {
+                    $this->decreaseStock(
+                        invoice: $invoice,
+                        item: $item
+                    );
+                }
+
+                /*
+                    إنشاء القيود.
+                */
+                $this->createJournalEntries($invoice);
+
+                /*
+                    تحديث حالة الفاتورة.
+                */
+                $invoice->update([
+                    'status' => 'posted',
+                    'posted_at' => now(),
+                    'posted_by' => auth()->id(),
+                ]);
+
+                app(\App\Services\AuditLogService::class)->log(
+                    action: 'post',
+                    module: 'Sales Invoice',
+                    description: 'تم ترحيل فاتورة مبيعات رقم ' . $invoice->invoice_no,
+                    model: $invoice,
+                    newValues: [
+                        'invoice_no' => $invoice->invoice_no,
+                        'branch_id' => $invoice->branch_id,
+                        'customer_id' => $invoice->customer_id,
+                        'grand_total' => $invoice->grand_total ?? $invoice->total_amount ?? null,
+                        'status' => $invoice->status,
+                    ],
+                    branchId: $invoice->branch_id
+                );
+
+                return $invoice->fresh([
+                    'customer',
+                    'branch',
+                    'warehouse',
                     'items.product',
                     'items.productUnit.unit',
-                    'costCenter',
-                ])
-                ->lockForUpdate()
-                ->findOrFail($invoice->id);
+                ]);
+            });
 
-            if ($invoice->status === 'posted') {
-                throw new Exception('الفاتورة مرحلة مسبقاً.');
-            }
+        /*
+        |--------------------------------------------------------------------------
+        | ZATCA Submission
+        |--------------------------------------------------------------------------
+        | يتم بعد نجاح Commit للمخزون والقيود المحاسبية.
+        */
+        $autoSubmitEnabled = ZatcaDevice::query()
+            ->where('status', 'production')
+            ->where('auto_submit', true)
+            ->exists();
 
-            if ($invoice->status === 'cancelled') {
-                throw new Exception('لا يمكن ترحيل فاتورة ملغاة.');
-            }
+        if (! $autoSubmitEnabled) {
+            return $postedInvoice;
+        }
 
-            /*
-                التأكد من توفر كل الأصناف قبل خصم أي كمية.
-            */
-            foreach ($invoice->items as $item) {
-                $this->validateStockAvailable(
-                    productId: (int) $item->product_id,
-                    warehouseId: (int) $invoice->warehouse_id,
-                    requiredQuantity: (float) $item->base_quantity
-                );
-            }
-
-            /*
-                خصم المخزون.
-            */
-            foreach ($invoice->items as $item) {
-                $this->decreaseStock(
-                    invoice: $invoice,
-                    item: $item
-                );
-            }
-
-            /*
-                إنشاء القيود.
-            */
-            $this->createJournalEntries($invoice);
-
-            /*
-                تحديث حالة الفاتورة.
-            */
-            $invoice->update([
-                'status' => 'posted',
-                'posted_at' => now(),
-                'posted_by' => auth()->id(),
-            ]);
-
-            return $invoice->fresh([
-                'customer',
-                'branch',
-                'warehouse',
-                'items.product',
-                'items.productUnit.unit',
-            ]);
-        });
+        return $this->zatcaSubmissionService->submit(
+            $postedInvoice
+        );
     }
 
 
@@ -298,9 +376,14 @@ class SalesInvoiceService
                 throw new Exception('الفاتورة ملغاة مسبقاً.');
             }
 
+            if (\App\Models\SalesDebitNote::where('sales_invoice_id', $invoice->id)
+                ->whereIn('status', ['draft', 'posted'])->exists()) {
+                throw new Exception('ألغِ الإشعارات المدينة المرتبطة قبل إلغاء الفاتورة الأصلية.');
+            }
+
             if ($invoice->status === 'draft') {
                 $invoice->update([
-                    'status' => 'cancelled',
+                    'status' => 'draft',
                     'cancelled_at' => now(),
                     'cancelled_by' => auth()->id(),
                     'cancel_reason' => $reason,
@@ -350,6 +433,26 @@ class SalesInvoiceService
                 'cancel_reason' => $reason,
             ]);
 
+            app(\App\Services\AuditLogService::class)->log(
+                action: 'cancel',
+                module: 'Sales Invoice',
+                description: 'تم إلغاء فاتورة مبيعات مرحلة رقم ' . $invoice->invoice_no,
+                model: $invoice,
+                oldValues: [
+                    'status' => 'posted',
+                    'invoice_no' => $invoice->invoice_no,
+                    'total_amount' => $invoice->total_amount,
+                    'paid_amount' => $invoice->paid_amount,
+                    'remaining_amount' => $invoice->remaining_amount,
+                ],
+                newValues: [
+                    'status' => 'cancelled',
+                    'cancel_reason' => $reason,
+                    'cancelled_at' => now(),
+                ],
+                branchId: $invoice->branch_id
+            );
+
             return $invoice->fresh([
                 'customer',
                 'branch',
@@ -373,21 +476,116 @@ class SalesInvoiceService
     | إذا كتب بيانات يدوية:
     | اليدوي له أولوية.
     */
-    private function prepareCustomerData(array $data, ?Customer $customer): array
-    {
+    private function prepareCustomerData(
+        array $data,
+        ?Customer $customer
+    ): array {
         return [
-            'customer_name' => $data['customer_name']
-                ?? $this->modelValue($customer, ['customer_name', 'name', 'fullname'])
-                ?? 'عميل نقدي',
+            'customer_name' =>
+                $data['customer_name']
+                    ?? $this->modelValue(
+                        $customer,
+                        ['customer_name', 'name', 'fullname']
+                    )
+                    ?? 'عميل نقدي',
 
-            'customer_mobile' => $data['customer_mobile']
-                ?? $this->modelValue($customer, ['mobile', 'phone']),
+            'customer_mobile' =>
+                $data['customer_mobile']
+                    ?? $this->modelValue(
+                        $customer,
+                        ['phone', 'mobile']
+                    ),
 
-            'customer_tax_number' => $data['customer_tax_number']
-                ?? $this->modelValue($customer, ['tax_registration_number', 'tax_number', 'vat_number']),
+            'customer_email' =>
+                $data['customer_email']
+                    ?? $this->modelValue(
+                        $customer,
+                        ['email']
+                    ),
 
-            'customer_address' => $data['customer_address']
-                ?? $this->modelValue($customer, ['address', 'full_address']),
+            'customer_tax_number' =>
+                $data['customer_tax_number']
+                    ?? $this->modelValue(
+                        $customer,
+                        [
+                            'tax_number',
+                            'tax_registration_number',
+                            'vat_number',
+                        ]
+                    ),
+
+            'customer_commercial_register' =>
+                $data['customer_commercial_register']
+                    ?? $this->modelValue(
+                        $customer,
+                        ['commercial_register']
+                    ),
+
+            'customer_country_code' =>
+                strtoupper(
+                    $data['customer_country_code']
+                        ?? $this->modelValue(
+                            $customer,
+                            ['country_code']
+                        )
+                        ?? ''
+                ),
+
+            'customer_state' =>
+                $data['customer_state']
+                    ?? $this->modelValue(
+                        $customer,
+                        ['state']
+                    ),
+
+            'customer_city' =>
+                $data['customer_city']
+                    ?? $this->modelValue(
+                        $customer,
+                        ['city']
+                    ),
+
+            'customer_district' =>
+                $data['customer_district']
+                    ?? $this->modelValue(
+                        $customer,
+                        ['district']
+                    ),
+
+            'customer_street_name' =>
+                $data['customer_street_name']
+                    ?? $this->modelValue(
+                        $customer,
+                        ['street_name']
+                    ),
+
+            'customer_building_number' =>
+                $data['customer_building_number']
+                    ?? $this->modelValue(
+                        $customer,
+                        ['building_number']
+                    ),
+
+            'customer_additional_number' =>
+                $data['customer_additional_number']
+                    ?? $this->modelValue(
+                        $customer,
+                        ['additional_number']
+                    ),
+
+            'customer_postal_code' =>
+                $data['customer_postal_code']
+                    ?? $this->modelValue(
+                        $customer,
+                        ['postal_code']
+                    ),
+
+            'customer_address' =>
+                $data['customer_address']
+                    ?? $this->modelValue(
+                        $customer,
+                        ['address', 'full_address']
+                    ),
         ];
     }
 
