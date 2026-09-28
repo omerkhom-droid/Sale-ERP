@@ -1,19 +1,34 @@
 <x-app-layout>
-<div class="container py-4" dir="rtl">
-    <div class="d-flex justify-content-between mb-3"><h3>إشعار مدين</h3><a href="{{ route('sales-debit-notes.index') }}" class="btn btn-secondary">رجوع</a></div>
-    @include('sales-debit-notes._alerts')
-    <div class="card"><div class="card-body">@include('sales-debit-notes._details')</div></div>
-    <div class="d-flex gap-2 my-3">
-        @can('sales_debit_notes.print')<a href="{{ route('sales-debit-notes.print',$note) }}" target="_blank" class="btn btn-dark">طباعة داخلية</a>@endcan
-        @if($note->status === 'draft')
-            @can('sales_debit_notes.post')<form method="POST" action="{{ route('sales-debit-notes.post',$note) }}" onsubmit="return confirm('ترحيل الإشعار وتحديث المديونية والمخزون؟')">@csrf<button class="btn btn-primary">ترحيل</button></form>@endcan
-        @endif
+@include('sales-debit-notes._styles')
+<div class="container-fluid py-4 wazin-note" dir="rtl">
+    <div class="wn-hero">
+        <div><h3>عرض إشعار مدين</h3><p>مراجعة بيانات الإشعار والأصناف وحالة الترحيل.</p></div>
+        <div class="wn-actions">
+            @can('sales_debit_notes.print')<a href="{{ route('sales-debit-notes.print',$note) }}" target="_blank" rel="noopener" class="btn btn-primary">طباعة داخلية</a>@endcan
+            <a href="{{ route('sales-debit-notes.index') }}" class="btn wn-back">رجوع للقائمة</a>
+        </div>
     </div>
+    @include('sales-debit-notes._alerts')
+    @include('sales-debit-notes._details')
+    @if($note->status === 'draft')
+        @can('sales_debit_notes.post')
+            <div class="wn-card"><div class="wn-body wn-footer">
+                <div><strong>الإشعار محفوظ كمسودة</strong><div class="wn-muted">الترحيل يحدّث المديونية والقيود، والمخزون عند زيادة كمية صنف مخزني.</div></div>
+                <form method="POST" action="{{ route('sales-debit-notes.post',$note) }}" onsubmit="return confirm('هل تريد ترحيل الإشعار؟');">@csrf<button class="btn btn-primary" type="submit">ترحيل الإشعار</button></form>
+            </div></div>
+        @endcan
+    @endif
     @if($note->status !== 'cancelled')
         @can('sales_debit_notes.cancel')
-            <form method="POST" action="{{ route('sales-debit-notes.cancel',$note) }}" onsubmit="return confirm('هل تريد إلغاء الإشعار؟')">@csrf
-                <label for="cancel_reason" class="form-label">سبب الإلغاء</label><textarea id="cancel_reason" class="form-control mb-2" name="cancel_reason" maxlength="2000" required></textarea><button class="btn btn-outline-danger">إلغاء الإشعار</button>
-            </form>
+            <section class="wn-card wn-cancel-box">
+                <div class="wn-heading"><div><h5>إلغاء الإشعار</h5><small>يُعكس أثر الإشعار المرحّل عند السماح بالإلغاء.</small></div></div>
+                <form class="wn-body" method="POST" action="{{ route('sales-debit-notes.cancel',$note) }}" onsubmit="return confirm('هل أنت متأكد من إلغاء الإشعار؟');">
+                    @csrf
+                    <label class="form-label" for="cancel-reason">سبب الإلغاء <span class="text-danger">*</span></label>
+                    <textarea class="form-control mb-3" id="cancel-reason" name="cancel_reason" rows="3" maxlength="2000" required>{{ old('cancel_reason') }}</textarea>
+                    <button type="submit" class="btn btn-danger">إلغاء الإشعار</button>
+                </form>
+            </section>
         @endcan
     @endif
 </div>

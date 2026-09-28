@@ -24,6 +24,20 @@
 
     <div class="sidebar-menu flex-grow-1" id="sidebarMenu">
 
+
+        @can('workshop.view')
+            <div class="sidebar-title">الورشة</div>
+            <div class="sidebar-section">
+                <a href="{{ route('workshop.index') }}" class="sidebar-link {{ request()->routeIs('workshop.index', 'workshop.show', 'workshop.create') ? 'active' : '' }}">
+                    <i class="fa-solid fa-screwdriver-wrench sidebar-icon"></i><span>أوامر العمل</span>
+                </a>
+                <a href="{{ route('workshop.vehicles') }}" class="sidebar-link {{ request()->routeIs('workshop.vehicles*') ? 'active' : '' }}">
+                    <i class="fa-solid fa-car sidebar-icon"></i><span>السيارات</span>
+                </a>
+            </div>
+        @endcan
+
+
         @can('dashboard.view')
             <div class="sidebar-title">الرئيسية</div>
 
@@ -343,7 +357,7 @@
                 @can('sales_debit_notes.view')
                     <a href="{{ route('sales-debit-notes.index') }}"
                        class="sidebar-link {{ request()->routeIs('sales-debit-notes.*') ? 'active' : '' }}">
-                        <i class="fa-solid fa-rotate-left sidebar-icon"></i> {{-- مردودات المبيعات --}}
+                        <i class="fa-solid fa-rotate-right sidebar-icon"></i> {{-- مردودات المبيعات --}}
                         <span>الإشعارات المدينة</span>
                     </a>
                 @endcan

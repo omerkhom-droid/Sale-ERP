@@ -260,6 +260,11 @@ class PermissionSeeder extends Seeder
             'roles.create',
             'roles.edit',
             'roles.delete',
+
+            'workshop.view',
+            'workshop.firstOrCreate',
+            'workshop.manage',
+
         ];
 
         foreach ($permissions as $permission) {

@@ -50,6 +50,7 @@ use App\Http\Controllers\RoleManagementController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\BackupController;
 use App\Http\Controllers\QuotationController;
+use App\Http\Controllers\WorkshopController;
 use Illuminate\Support\Facades\Route;
 
 // POS
@@ -96,6 +97,23 @@ Route::middleware(['auth'])->prefix('ajax-lookup')->name('ajax-lookup.')->group(
 });
 
 Route::middleware(['auth', 'active.user', 'branch.access', 'license.valid'])->group(function () {
+
+    Route::prefix('workshop')->name('workshop.')->group(function () {
+        Route::get('/', [WorkshopController::class, 'index'])->middleware('permission:workshop.view')->name('index');
+        Route::get('/vehicles', [WorkshopController::class, 'vehicles'])->middleware('permission:workshop.view')->name('vehicles');
+        Route::post('/vehicles', [WorkshopController::class, 'storeVehicle'])->middleware('permission:workshop.create')->name('vehicles.store');
+        Route::get('/create', [WorkshopController::class, 'create'])->middleware('permission:workshop.create')->name('create');
+        Route::post('/', [WorkshopController::class, 'store'])->middleware('permission:workshop.create')->name('store');
+        Route::get('/{id}', [WorkshopController::class, 'show'])->middleware('permission:workshop.view')->whereNumber('id')->name('show');
+        Route::patch('/{id}/status', [WorkshopController::class, 'updateStatus'])->middleware('permission:workshop.manage')->whereNumber('id')->name('status');
+        Route::patch('/{id}/diagnosis', [WorkshopController::class, 'updateDiagnosis'])->middleware('permission:workshop.manage')->whereNumber('id')->name('diagnosis');
+        Route::post('/{id}/items', [WorkshopController::class, 'addItem'])->middleware('permission:workshop.manage')->whereNumber('id')->name('items.store');
+        Route::delete('/{id}/items/{item}', [WorkshopController::class, 'removeItem'])->middleware('permission:workshop.manage')->where(['id' => '[0-9]+', 'item' => '[0-9]+'])->name('items.destroy');
+        Route::post('/{id}/quotation', [WorkshopController::class, 'createQuotation'])->middleware('permission:workshop.manage')->whereNumber('id')->name('quotation.store');
+        Route::post('/{id}/attachments', [WorkshopController::class, 'uploadAttachment'])->middleware('permission:workshop.manage')->whereNumber('id')->name('attachments.store');
+        Route::get('/{id}/attachments/{attachment}', [WorkshopController::class, 'downloadAttachment'])->middleware('permission:workshop.view')->where(['id' => '[0-9]+', 'attachment' => '[0-9]+'])->name('attachments.download');
+        Route::delete('/{id}/attachments/{attachment}', [WorkshopController::class, 'deleteAttachment'])->middleware('permission:workshop.manage')->where(['id' => '[0-9]+', 'attachment' => '[0-9]+'])->name('attachments.destroy');
+    });
 
     /*
     |--------------------------------------------------------------------------
