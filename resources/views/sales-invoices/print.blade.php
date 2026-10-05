@@ -2,7 +2,12 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <title>فاتورة بيع - {{ $salesInvoice->invoice_no }}</title>
+    <title>
+        {{ $salesInvoice->invoice_classification === 'standard'
+            ? 'فاتورة ضريبية'
+            : 'فاتورة ضريبية مبسطة' }}
+        - {{ $salesInvoice->invoice_no }}
+    </title>
 
     <style>
         :root {
@@ -502,8 +507,13 @@
     <div class="invoice-top">
         <div class="print-header">
             @include('partials.print-company-header', [
-                'document' => $salesInvoice,
-                'documentTitle' => 'فاتورة بيع',
+                'documentTitle' => $salesInvoice->invoice_classification === 'standard'
+                    ? 'فاتورة ضريبية'
+                    : 'فاتورة ضريبية مبسطة',
+
+                'documentTitleEn' => $salesInvoice->invoice_classification === 'standard'
+                    ? 'Tax Invoice'
+                    : 'Simplified Tax Invoice',
                 'documentTitleEn' => 'Sales Invoice',
                 'documentNumber' => $salesInvoice->invoice_no,
                 'documentStatus' => $salesInvoice->status,
@@ -590,36 +600,65 @@
             </table>
         </div>
 
+        @php
+            $customerNationalAddress = collect([
+                $salesInvoice->customer_state,
+                $salesInvoice->customer_city,
+                $salesInvoice->customer_district,
+                $salesInvoice->customer_street_name,
+                $salesInvoice->customer_building_number
+                    ? 'مبنى ' . $salesInvoice->customer_building_number
+                    : null,
+                $salesInvoice->customer_postal_code
+                    ? 'الرمز البريدي ' . $salesInvoice->customer_postal_code
+                    : null,
+                $salesInvoice->customer_additional_number
+                    ? 'الرقم الإضافي ' . $salesInvoice->customer_additional_number
+                    : null,
+            ])->filter()->implode(' - ');
+        @endphp
+        
         <div class="section">
-            <div class="section-title">بيانات العميل</div>
+            <div class="section-title">
+                بيانات العميل —
+                {{ $salesInvoice->invoice_classification === 'standard'
+                    ? 'فاتورة قياسية'
+                    : 'فاتورة مبسطة' }}
+            </div>
 
             <table class="info-table">
                 <tr>
                     <td class="label-cell">اسم العميل</td>
-                    <td class="value-cell">{{ $salesInvoice->customer_name ?? 'عميل نقدي' }}</td>
+                    <td class="value-cell">
+                        {{ $salesInvoice->customer_name ?? 'عميل نقدي' }}
+                    </td>
 
                     <td class="label-cell">الجوال</td>
-                    <td class="value-cell ltr">{{ $salesInvoice->customer_mobile ?? '-' }}</td>
-                </tr>
-
-                <tr>
-                    <td class="label-cell">الرقم الضريبي</td>
-                    <td class="value-cell ltr">{{ $salesInvoice->customer_tax_number ?? '-' }}</td>
-
-                    <td class="label-cell">العميل المسجل</td>
-                    <td class="value-cell">
-                        {{ $salesInvoice->customer?->customer_name
-                            ?? $salesInvoice->customer?->name
-                            ?? '-' }}
+                    <td class="value-cell ltr">
+                        {{ $salesInvoice->customer_mobile ?? '-' }}
                     </td>
                 </tr>
 
-                <tr>
-                    <td class="label-cell">العنوان</td>
-                    <td class="value-cell" colspan="3">
-                        {{ $salesInvoice->customer_address ?? '-' }}
-                    </td>
-                </tr>
+                @if($salesInvoice->invoice_classification === 'standard')
+                    <tr>
+                        <td class="label-cell">الرقم الضريبي</td>
+                        <td class="value-cell ltr">
+                            {{ $salesInvoice->customer_tax_number ?? '-' }}
+                        </td>
+
+                        <td class="label-cell">السجل التجاري</td>
+                        <td class="value-cell ltr">
+                            {{ $salesInvoice->customer_commercial_register ?? '-' }}
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td class="label-cell">العنوان الوطني</td>
+                        <td class="value-cell" colspan="3">
+                            {{ $customerNationalAddress ?: '-' }}
+                        </td>
+                    </tr>
+                @endif
             </table>
         </div>
 

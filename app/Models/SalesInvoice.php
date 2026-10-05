@@ -17,9 +17,36 @@ class SalesInvoice extends Model
 
         'customer_id',
         'customer_type',
+        'invoice_classification',
+
+        'zatca_icv',
+        'zatca_previous_invoice_hash',
+        'zatca_uuid',
+        'zatca_invoice_hash',
+        'zatca_status',
+        'zatca_http_status',
+        'zatca_attempts',
+        'zatca_qr',
+        'zatca_signed_xml',
+        'zatca_cleared_xml',
+        'zatca_response',
+        'zatca_error',
+        'zatca_sent_at',
+
         'customer_name',
         'customer_mobile',
+        'customer_email',
         'customer_tax_number',
+        'customer_commercial_register',
+
+        'customer_country_code',
+        'customer_state',
+        'customer_city',
+        'customer_district',
+        'customer_street_name',
+        'customer_building_number',
+        'customer_additional_number',
+        'customer_postal_code',
         'customer_address',
 
         'payment_type',
@@ -61,6 +88,12 @@ class SalesInvoice extends Model
         'invoice_date' => 'date',
         'posted_at' => 'datetime',
         'cancelled_at' => 'datetime',
+
+        'zatca_icv' => 'integer',
+        'zatca_http_status' => 'integer',
+        'zatca_attempts' => 'integer',
+        'zatca_response' => 'array',
+        'zatca_sent_at' => 'datetime',
     ];
 
     /*

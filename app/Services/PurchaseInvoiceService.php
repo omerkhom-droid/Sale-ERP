@@ -174,6 +174,25 @@ class PurchaseInvoiceService
                 'posted_by' => auth()->id(),
             ]);
 
+            app(\App\Services\AuditLogService::class)->log(
+                action: 'post',
+                module: 'Purchase Invoice',
+                description: 'تم ترحيل فاتورة مشتريات رقم ' . $invoice->invoice_no,
+                model: $invoice,
+                newValues: [
+                    'invoice_no' => $invoice->invoice_no,
+                    'branch_id' => $invoice->branch_id,
+                    'warehouse_id' => $invoice->warehouse_id,
+                    'supplier_id' => $invoice->supplier_id,
+                    'total_amount' => $invoice->grand_total
+                        ?? $invoice->total_amount
+                        ?? $invoice->net_total
+                        ?? null,
+                    'status' => $invoice->status,
+                ],
+                branchId: $invoice->branch_id
+            );
+
             return $invoice->fresh([
                 'supplier',
                 'branch',
@@ -207,6 +226,27 @@ class PurchaseInvoiceService
                     'cancel_reason' => $reason,
                 ]);
 
+                app(\App\Services\AuditLogService::class)->log(
+                    action: 'cancel',
+                    module: 'Purchase Invoice',
+                    description: 'تم إلغاء فاتورة مشتريات مسودة رقم ' . $invoice->invoice_no,
+                    model: $invoice,
+                    oldValues: [
+                        'status' => 'draft',
+                        'invoice_no' => $invoice->invoice_no,
+                        'total_amount' => $invoice->grand_total
+                            ?? $invoice->total_amount
+                            ?? $invoice->net_total
+                            ?? null,
+                    ],
+                    newValues: [
+                        'status' => 'cancelled',
+                        'cancel_reason' => $reason ?? null,
+                        'cancelled_at' => now(),
+                    ],
+                    branchId: $invoice->branch_id
+                );
+
                 return $invoice->fresh();
             }
 
@@ -228,6 +268,27 @@ class PurchaseInvoiceService
                 'cancelled_by' => auth()->id(),
                 'cancel_reason' => $reason,
             ]);
+
+            app(\App\Services\AuditLogService::class)->log(
+                action: 'cancel',
+                module: 'Purchase Invoice',
+                description: 'تم إلغاء فاتورة مشتريات مسودة رقم ' . $invoice->invoice_no,
+                model: $invoice,
+                oldValues: [
+                    'status' => 'posted',
+                    'invoice_no' => $invoice->invoice_no,
+                    'total_amount' => $invoice->grand_total
+                        ?? $invoice->total_amount
+                        ?? $invoice->net_total
+                        ?? null,
+                ],
+                newValues: [
+                    'status' => 'cancelled',
+                    'cancel_reason' => $reason ?? null,
+                    'cancelled_at' => now(),
+                ],
+                branchId: $invoice->branch_id
+            );
 
             return $invoice->fresh([
                 'supplier',

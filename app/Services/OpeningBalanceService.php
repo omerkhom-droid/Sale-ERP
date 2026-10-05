@@ -78,6 +78,21 @@ class OpeningBalanceService
                 throw new Exception('يجب إدخال سطر واحد على الأقل.');
             }
 
+            app(\App\Services\AuditLogService::class)->log(
+                action: 'create',
+                module: 'Opening Balance',
+                description: 'تم إنشاء مسودة أرصدة افتتاحية رقم ' . $openingBalance->opening_no,
+                model: $openingBalance,
+                newValues: [
+                    'opening_no' => $openingBalance->opening_no,
+                    'opening_date' => $openingBalance->opening_date,
+                    'branch_id' => $openingBalance->branch_id,
+                    'status' => $openingBalance->status,
+                    'lines_count' => $openingBalance->lines()->count(),
+                ],
+                branchId: $openingBalance->branch_id
+            );
+
             return $openingBalance;
         });
     }
@@ -207,6 +222,25 @@ class OpeningBalanceService
                 'posted_at' => now(),
             ]);
 
+            app(\App\Services\AuditLogService::class)->log(
+                action: 'post',
+                module: 'Opening Balance',
+                description: 'تم ترحيل الأرصدة الافتتاحية رقم ' . $openingBalance->opening_no,
+                model: $openingBalance,
+                oldValues: [
+                    'status' => 'draft',
+                ],
+                newValues: [
+                    'opening_no' => $openingBalance->opening_no,
+                    'opening_date' => $openingBalance->opening_date,
+                    'branch_id' => $openingBalance->branch_id,
+                    'status' => 'posted',
+                    'posted_by' => $openingBalance->posted_by,
+                    'posted_at' => $openingBalance->posted_at,
+                ],
+                branchId: $openingBalance->branch_id
+            );
+
             return $openingBalance;
         });
     }
@@ -228,12 +262,33 @@ class OpeningBalanceService
                 app(JournalEntryService::class)->reverse($entry);
             }
 
+            $oldValues = [
+                'status' => $openingBalance->status,
+                'opening_no' => $openingBalance->opening_no,
+                'opening_date' => $openingBalance->opening_date,
+            ];
+
             $openingBalance->update([
                 'status' => 'cancelled',
                 'cancelled_by' => auth()->id(),
                 'cancelled_at' => now(),
                 'cancellation_reason' => $reason,
             ]);
+
+            app(\App\Services\AuditLogService::class)->log(
+                action: 'cancel',
+                module: 'Opening Balance',
+                description: 'تم إلغاء الأرصدة الافتتاحية رقم ' . $openingBalance->opening_no,
+                model: $openingBalance,
+                oldValues: $oldValues,
+                newValues: [
+                    'status' => $openingBalance->status,
+                    'cancelled_by' => $openingBalance->cancelled_by,
+                    'cancelled_at' => $openingBalance->cancelled_at,
+                    'cancellation_reason' => $openingBalance->cancellation_reason,
+                ],
+                branchId: $openingBalance->branch_id
+            );
 
             return $openingBalance;
         });

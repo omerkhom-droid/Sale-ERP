@@ -91,6 +91,11 @@
                             <i class="fa-solid fa-code-branch sidebar-icon"></i> {{-- الفروع --}}
                             <span>الفروع</span>
                         </a>
+                        <a href="{{ route('zatca.devices.index') }}"
+                           class="sidebar-link {{ request()->routeIs('zatca.devices') ? 'active' : '' }}">
+                            <i class="fa-solid fa-code-branch sidebar-icon"></i> {{-- الفروع --}}
+                            <span>اعدادت زاتكاء </span>
+                        </a>
                     @endif
                 @endcan
 
@@ -102,16 +107,6 @@
                     </a>
                 @endcan
 
-                @can('backups.view')
-                    @if(in_array(auth()->user()->user_type ?? 'user', ['master', 'system_admin'], true))
-                        <a href="{{ route('backups.index') }}"
-                           class="sidebar-link {{ request()->routeIs('backups.*') ? 'active' : '' }}">
-                            <i class="fa-solid fa-database sidebar-icon"></i> {{-- النسخ الاحتياطي --}}
-                            <span>النسخ الاحتياطي</span>
-                        </a>
-                    @endif
-                @endcan
-                
             </div>
         @endcanany
 
@@ -136,6 +131,24 @@
                         <i class="fa-solid fa-shield-halved sidebar-icon"></i> {{-- الأدوار والصلاحيات --}}
                         <span>الأدوار والصلاحيات</span>
                     </a>
+                @endcan
+
+                @can('audit_logs.view')
+                    <a href="{{ route('audit-logs.index') }}"
+                       class="sidebar-link {{ request()->routeIs('audit-logs.*') ? 'active' : '' }}">
+                        <i class="fa-solid fa-clock-rotate-left sidebar-icon"></i>
+                        <span>سجل النشاطات</span>
+                    </a>
+                @endcan
+                
+                @can('backups.view')
+                    @if(in_array(auth()->user()->user_type ?? 'user', ['master', 'system_admin'], true))
+                        <a href="{{ route('backups.index') }}"
+                           class="sidebar-link {{ request()->routeIs('backups.*') ? 'active' : '' }}">
+                            <i class="fa-solid fa-database sidebar-icon"></i> {{-- النسخ الاحتياطي --}}
+                            <span>النسخ الاحتياطي</span>
+                        </a>
+                    @endif
                 @endcan
 
             </div>
@@ -350,11 +363,17 @@
                     <a href="{{ route('sales-returns.index') }}"
                        class="sidebar-link {{ request()->routeIs('sales-returns.*') ? 'active' : '' }}">
                         <i class="fa-solid fa-rotate-left sidebar-icon"></i> {{-- مردودات المبيعات --}}
+<<<<<<< Updated upstream
                         <span>الإشعارات  الدائنة </span>
                     </a>
                 @endcan
 
                 @can('sales_debit_notes.view')
+=======
+                        <span>الإشعارات الدائنة</span>
+                    </a>
+
+>>>>>>> Stashed changes
                     <a href="{{ route('sales-debit-notes.index') }}"
                        class="sidebar-link {{ request()->routeIs('sales-debit-notes.*') ? 'active' : '' }}">
                         <i class="fa-solid fa-rotate-right sidebar-icon"></i> {{-- مردودات المبيعات --}}

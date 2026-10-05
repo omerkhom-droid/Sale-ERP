@@ -110,6 +110,35 @@ class QuotationService
                 ]);
             }
 
+            app(\App\Services\AuditLogService::class)->log(
+                action: 'create',
+                module: 'Quotation',
+                description: 'تم إنشاء عرض سعر رقم ' . $quotation->quotation_no,
+                model: $quotation,
+                newValues: [
+                    'quotation_no' => $quotation->quotation_no,
+                    'quotation_date' => $quotation->quotation_date,
+                    'valid_until' => $quotation->valid_until,
+
+                    'customer_id' => $quotation->customer_id,
+                    'customer_type' => $quotation->customer_type,
+                    'customer_name' => $quotation->customer_name,
+
+                    'branch_id' => $quotation->branch_id,
+                    'cost_center_id' => $quotation->cost_center_id,
+                    'warehouse_id' => $quotation->warehouse_id,
+
+                    'subtotal' => $quotation->subtotal,
+                    'discount_amount' => $quotation->discount_amount,
+                    'vat_amount' => $quotation->vat_amount,
+                    'total_amount' => $quotation->total_amount,
+
+                    'status' => $quotation->status,
+                    'items_count' => $calculatedItems->count(),
+                ],
+                branchId: $quotation->branch_id
+            );
+
             return $quotation->fresh([
                 'customer',
                 'branch',
@@ -128,6 +157,39 @@ class QuotationService
             $quotation = Quotation::with('items')
                 ->lockForUpdate()
                 ->findOrFail($quotation->id);
+
+            $oldValues = [
+                'quotation_no' => $quotation->quotation_no,
+                'quotation_date' => $quotation->quotation_date,
+                'valid_until' => $quotation->valid_until,
+
+                'customer_id' => $quotation->customer_id,
+                'customer_type' => $quotation->customer_type,
+                'customer_name' => $quotation->customer_name,
+
+                'branch_id' => $quotation->branch_id,
+                'cost_center_id' => $quotation->cost_center_id,
+                'warehouse_id' => $quotation->warehouse_id,
+
+                'subtotal' => $quotation->subtotal,
+                'discount_amount' => $quotation->discount_amount,
+                'vat_amount' => $quotation->vat_amount,
+                'total_amount' => $quotation->total_amount,
+
+                'status' => $quotation->status,
+
+                'items' => $quotation->items->map(function ($item) {
+                    return [
+                        'product_id' => $item->product_id,
+                        'product_unit_id' => $item->product_unit_id,
+                        'quantity' => $item->quantity,
+                        'unit_price' => $item->unit_price,
+                        'discount_amount' => $item->discount_amount,
+                        'vat_rate' => $item->vat_rate,
+                        'line_total' => $item->line_total,
+                    ];
+                })->values()->toArray(),
+            ];
 
             if (in_array($quotation->status, ['converted', 'cancelled'], true)) {
                 throw new Exception('لا يمكن تعديل عرض سعر محول إلى فاتورة أو ملغي.');
@@ -225,6 +287,47 @@ class QuotationService
                     'line_total' => $item['line_total'],
                 ]);
             }
+
+            app(\App\Services\AuditLogService::class)->log(
+                action: 'update',
+                module: 'Quotation',
+                description: 'تم تعديل عرض سعر رقم ' . $quotation->quotation_no,
+                model: $quotation,
+                oldValues: $oldValues,
+                newValues: [
+                    'quotation_no' => $quotation->quotation_no,
+                    'quotation_date' => $quotation->quotation_date,
+                    'valid_until' => $quotation->valid_until,
+
+                    'customer_id' => $quotation->customer_id,
+                    'customer_type' => $quotation->customer_type,
+                    'customer_name' => $quotation->customer_name,
+
+                    'branch_id' => $quotation->branch_id,
+                    'cost_center_id' => $quotation->cost_center_id,
+                    'warehouse_id' => $quotation->warehouse_id,
+
+                    'subtotal' => $quotation->subtotal,
+                    'discount_amount' => $quotation->discount_amount,
+                    'vat_amount' => $quotation->vat_amount,
+                    'total_amount' => $quotation->total_amount,
+
+                    'status' => $quotation->status,
+
+                    'items' => $calculatedItems->map(function ($item) {
+                        return [
+                            'product_id' => $item['product_id'],
+                            'product_unit_id' => $item['product_unit_id'],
+                            'quantity' => $item['quantity'],
+                            'unit_price' => $item['unit_price'],
+                            'discount_amount' => $item['discount_amount'],
+                            'vat_rate' => $item['vat_rate'],
+                            'line_total' => $item['line_total'],
+                        ];
+                    })->values()->toArray(),
+                ],
+                branchId: $quotation->branch_id
+            );
 
             return $quotation->fresh([
                 'customer',

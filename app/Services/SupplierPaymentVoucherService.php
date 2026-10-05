@@ -146,6 +146,26 @@ class SupplierPaymentVoucherService
                 'posted_by' => auth()->id(),
             ]);
 
+            app(\App\Services\AuditLogService::class)->log(
+                action: 'post',
+                module: 'Supplier Payment Voucher',
+                description: 'تم ترحيل سند صرف مورد رقم ' . $voucher->voucher_no,
+                model: $voucher,
+                newValues: [
+                    'voucher_no' => $voucher->voucher_no,
+                    'supplier_id' => $voucher->supplier_id,
+                    'branch_id' => $voucher->branch_id,
+                    'cost_center_id' => $voucher->cost_center_id,
+                    'voucher_date' => $voucher->voucher_date,
+                    'payment_account_id' => $voucher->payment_account_id,
+                    'amount' => $voucher->amount,
+                    'allocated_amount' => $voucher->allocated_amount,
+                    'unallocated_amount' => $voucher->unallocated_amount,
+                    'status' => $voucher->status,
+                ],
+                branchId: $voucher->branch_id
+            );
+
             return $voucher->fresh([
                 'supplier',
                 'paymentAccount',
@@ -173,6 +193,27 @@ class SupplierPaymentVoucherService
                     'cancelled_by' => auth()->id(),
                     'cancel_reason' => $reason,
                 ]);
+
+                app(\App\Services\AuditLogService::class)->log(
+                    action: 'cancel',
+                    module: 'Supplier Payment Voucher',
+                    description: 'تم إلغاء سند صرف مورد مسودة رقم ' . $voucher->voucher_no,
+                    model: $voucher,
+                    oldValues: [
+                        'status' => 'draft',
+                        'voucher_no' => $voucher->voucher_no,
+                        'supplier_id' => $voucher->supplier_id,
+                        'amount' => $voucher->amount,
+                        'allocated_amount' => $voucher->allocated_amount,
+                        'payment_account_id' => $voucher->payment_account_id,
+                    ],
+                    newValues: [
+                        'status' => 'cancelled',
+                        'cancel_reason' => $reason,
+                        'cancelled_at' => now(),
+                    ],
+                    branchId: $voucher->branch_id
+                );
 
                 return $voucher->fresh();
             }
@@ -239,6 +280,27 @@ class SupplierPaymentVoucherService
                 'cancelled_by' => auth()->id(),
                 'cancel_reason' => $reason,
             ]);
+
+            app(\App\Services\AuditLogService::class)->log(
+                action: 'cancel',
+                module: 'Supplier Payment Voucher',
+                description: 'تم إلغاء سند صرف مورد مرحل رقم ' . $voucher->voucher_no,
+                model: $voucher,
+                oldValues: [
+                    'status' => 'posted',
+                    'voucher_no' => $voucher->voucher_no,
+                    'supplier_id' => $voucher->supplier_id,
+                    'amount' => $voucher->amount,
+                    'allocated_amount' => $voucher->allocated_amount,
+                    'payment_account_id' => $voucher->payment_account_id,
+                ],
+                newValues: [
+                    'status' => 'cancelled',
+                    'cancel_reason' => $reason,
+                    'cancelled_at' => now(),
+                ],
+                branchId: $voucher->branch_id
+            );
 
             return $voucher->fresh([
                 'supplier',

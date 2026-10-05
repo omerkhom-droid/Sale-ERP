@@ -34,5 +34,38 @@ return [
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
     ],
+    
+    'zatca' => [
+        'environment' => env(
+            'ZATCA_ENVIRONMENT',
+            'developer'
+        ),
+
+        'developer_url' => env(
+            'ZATCA_DEVELOPER_URL',
+            'https://gw-fatoora.zatca.gov.sa/e-invoicing/developer-portal'
+        ),
+
+        'simulation_url' => env(
+            'ZATCA_SIMULATION_URL',
+            'https://gw-fatoora.zatca.gov.sa/e-invoicing/simulation'
+        ),
+
+        'production_url' => env(
+            'ZATCA_PRODUCTION_URL',
+            'https://gw-fatoora.zatca.gov.sa/e-invoicing/core'
+        ),
+
+        'openssl_path' => env(
+            'ZATCA_OPENSSL_PATH',
+            'openssl'
+        ),
+
+        'auto_submit' => env(
+            'ZATCA_AUTO_SUBMIT',
+            false
+        ),
+        
+    ],
 
 ];

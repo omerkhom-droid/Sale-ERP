@@ -187,6 +187,21 @@ class PosController extends Controller
 
         try {
             $shift = $this->posShiftService->openShift($data);
+           
+            app(\App\Services\AuditLogService::class)->log(
+                action: 'open_shift',
+                module: 'POS',
+                description: 'تم فتح وردية POS رقم ' . $shift->shift_no,
+                model: $shift,
+                newValues: [
+                    'shift_no' => $shift->shift_no,
+                    'branch_id' => $shift->branch_id,
+                    'warehouse_id' => $shift->warehouse_id,
+                    'opening_cash' => $shift->opening_cash,
+                    'opened_at' => $shift->opened_at,
+                ],
+                branchId: $shift->branch_id
+            );
 
             return response()->json([
                 'success' => true,
@@ -220,6 +235,24 @@ class PosController extends Controller
             $this->posShiftService->refreshShiftTotals($posShift);
 
             $shift = $this->posShiftService->closeShift($posShift, $data);
+
+            app(\App\Services\AuditLogService::class)->log(
+                action: 'close_shift',
+                module: 'POS',
+                description: 'تم إغلاق وردية POS رقم ' . $shift->shift_no,
+                model: $shift,
+                newValues: [
+                    'shift_no' => $shift->shift_no,
+                    'total_sales' => $shift->total_sales,
+                    'total_cash' => $shift->total_cash,
+                    'total_card' => $shift->total_card,
+                    'expected_cash' => $shift->expected_cash,
+                    'actual_cash' => $shift->actual_cash,
+                    'cash_difference' => $shift->cash_difference,
+                    'closed_at' => $shift->closed_at,
+                ],
+                branchId: $shift->branch_id
+            );
 
             return response()->json([
                 'success' => true,
@@ -545,6 +578,24 @@ class PosController extends Controller
                 reason: $data['cancel_reason']
             );
 
+            app(\App\Services\AuditLogService::class)->log(
+                action: 'pos_cancel_order',
+                module: 'POS',
+                description: 'تم إلغاء طلب POS رقم ' . $order->order_no,
+                model: $order,
+                oldValues: [
+                    'status' => 'paid',
+                    'total_amount' => $order->total_amount,
+                    'sales_invoice_id' => $order->sales_invoice_id,
+                ],
+                newValues: [
+                    'status' => 'cancelled',
+                    'cancel_reason' => $request->cancel_reason ?? null,
+                    'cancelled_at' => now(),
+                ],
+                branchId: $order->branch_id
+            );
+            
             return response()->json([
                 'success' => true,
                 'message' => 'تم إلغاء الطلب بنجاح.',

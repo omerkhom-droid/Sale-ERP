@@ -147,6 +147,25 @@ class CustomerRefundVoucherService
                 'posted_by' => auth()->id(),
             ]);
 
+            app(\App\Services\AuditLogService::class)->log(
+                action: 'post',
+                module: 'Customer Refund Voucher',
+                description: 'تم ترحيل سند صرف عميل رقم ' . $voucher->voucher_no,
+                model: $voucher,
+                newValues: [
+                    'voucher_no' => $voucher->voucher_no,
+                    'sales_return_id' => $voucher->sales_return_id,
+                    'customer_id' => $voucher->customer_id,
+                    'branch_id' => $voucher->branch_id,
+                    'cost_center_id' => $voucher->cost_center_id,
+                    'refund_date' => $voucher->refund_date,
+                    'payment_method' => $voucher->payment_method,
+                    'amount' => $voucher->amount,
+                    'status' => $voucher->status,
+                ],
+                branchId: $voucher->branch_id
+            );
+
             return $voucher->fresh([
                 'salesReturn',
                 'customer',
@@ -188,6 +207,26 @@ class CustomerRefundVoucherService
                     'cancel_reason' => $reason,
                 ]);
 
+                app(\App\Services\AuditLogService::class)->log(
+                    action: 'cancel',
+                    module: 'Customer Refund Voucher',
+                    description: 'تم إلغاء سند صرف عميل مسودة رقم ' . $voucher->voucher_no,
+                    model: $voucher,
+                    oldValues: [
+                        'status' => 'draft',
+                        'voucher_no' => $voucher->voucher_no,
+                        'sales_return_id' => $voucher->sales_return_id,
+                        'customer_id' => $voucher->customer_id,
+                        'amount' => $voucher->amount,
+                    ],
+                    newValues: [
+                        'status' => 'cancelled',
+                        'cancel_reason' => $reason,
+                        'cancelled_at' => now(),
+                    ],
+                    branchId: $voucher->branch_id
+                );
+                
                 return $voucher->fresh();
             }
 
@@ -225,6 +264,26 @@ class CustomerRefundVoucherService
                 'cancelled_by' => auth()->id(),
                 'cancel_reason' => $reason,
             ]);
+
+            app(\App\Services\AuditLogService::class)->log(
+                action: 'cancel',
+                module: 'Customer Refund Voucher',
+                description: 'تم إلغاء سند صرف عميل مرحل رقم ' . $voucher->voucher_no,
+                model: $voucher,
+                oldValues: [
+                    'status' => 'posted',
+                    'voucher_no' => $voucher->voucher_no,
+                    'sales_return_id' => $voucher->sales_return_id,
+                    'customer_id' => $voucher->customer_id,
+                    'amount' => $voucher->amount,
+                ],
+                newValues: [
+                    'status' => 'cancelled',
+                    'cancel_reason' => $reason,
+                    'cancelled_at' => now(),
+                ],
+                branchId: $voucher->branch_id
+            );
 
             return $voucher->fresh([
                 'salesReturn',

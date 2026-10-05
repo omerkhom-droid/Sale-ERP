@@ -170,6 +170,7 @@
                                name="customer_name"
                                id="customer_name"
                                class="form-control"
+                               maxlength="255"
                                value="{{ old('customer_name') }}"
                                placeholder="عميل نقدي">
                     </div>
@@ -180,16 +181,19 @@
                                name="customer_mobile"
                                id="customer_mobile"
                                class="form-control"
+                               inputmode="tel"
+                               maxlength="16"
                                value="{{ old('customer_mobile') }}">
                     </div>
 
                     <div class="col-md-3">
-                        <label class="form-label">الرقم الضريبي</label>
-                        <input type="text"
-                               name="customer_tax_number"
-                               id="customer_tax_number"
+                        <label class="form-label">البريد الإلكتروني</label>
+                        <input type="email"
+                               name="customer_email"
+                               id="customer_email"
                                class="form-control"
-                               value="{{ old('customer_tax_number') }}">
+                               maxlength="255"
+                               value="{{ old('customer_email') }}">
                     </div>
 
                     <div class="col-md-3">
@@ -203,14 +207,140 @@
                                value="{{ old('paid_amount', 0) }}">
                     </div>
 
-                    <div class="col-md-12">
-                        <label class="form-label">عنوان العميل</label>
-                        <textarea name="customer_address"
-                                  id="customer_address"
-                                  class="form-control"
-                                  rows="2">{{ old('customer_address') }}</textarea>
-                    </div>
+                    <div class="col-12 mt-4">
+                        <div class="border rounded-3 p-3">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <div>
+                                    <h6 class="fw-bold mb-1">بيانات الفاتورة القياسية</h6>
+                                    <small class="text-muted">
+                                        اترك هذه البيانات فارغة لإصدار فاتورة مبسطة.
+                                    </small>
+                                </div>
 
+                                <span id="invoice_classification_badge"
+                                      class="badge bg-secondary">
+                                    فاتورة مبسطة
+                                </span>
+                            </div>
+
+                            <div class="row g-3">
+
+                                <div class="col-md-4">
+                                    <label class="form-label">الرقم الضريبي</label>
+                                    <input type="text"
+                                           name="customer_tax_number"
+                                           id="customer_tax_number"
+                                           class="form-control standard-invoice-field"
+                                           inputmode="numeric"
+                                           maxlength="15"
+                                           value="{{ old('customer_tax_number') }}"
+                                           placeholder="15 رقماً">
+                                </div>
+
+                                <div class="col-md-4">
+                                    <label class="form-label">السجل التجاري</label>
+                                    <input type="text"
+                                           name="customer_commercial_register"
+                                           id="customer_commercial_register"
+                                           class="form-control standard-invoice-field"
+                                           inputmode="numeric"
+                                           maxlength="10"
+                                           value="{{ old('customer_commercial_register') }}"
+                                           placeholder="10 أرقام">
+                                </div>
+
+                                <div class="col-md-4">
+                                    <label class="form-label">رمز الدولة</label>
+                                    <input type="text"
+                                           name="customer_country_code"
+                                           id="customer_country_code"
+                                           class="form-control standard-invoice-field text-uppercase"
+                                           maxlength="2"
+                                           value="{{ old('customer_country_code') }}"
+                                           placeholder="SA">
+                                </div>
+
+                                <div class="col-md-3">
+                                    <label class="form-label">المنطقة</label>
+                                    <input type="text"
+                                           name="customer_state"
+                                           id="customer_state"
+                                           class="form-control standard-invoice-field"
+                                           maxlength="127"
+                                           value="{{ old('customer_state') }}">
+                                </div>
+
+                                <div class="col-md-3">
+                                    <label class="form-label">المدينة</label>
+                                    <input type="text"
+                                           name="customer_city"
+                                           id="customer_city"
+                                           class="form-control standard-invoice-field"
+                                           maxlength="127"
+                                           value="{{ old('customer_city') }}">
+                                </div>
+
+                                <div class="col-md-3">
+                                    <label class="form-label">الحي</label>
+                                    <input type="text"
+                                           name="customer_district"
+                                           id="customer_district"
+                                           class="form-control standard-invoice-field"
+                                           maxlength="127"
+                                           value="{{ old('customer_district') }}">
+                                </div>
+
+                                <div class="col-md-3">
+                                    <label class="form-label">اسم الشارع</label>
+                                    <input type="text"
+                                           name="customer_street_name"
+                                           id="customer_street_name"
+                                           class="form-control standard-invoice-field"
+                                           maxlength="127"
+                                           value="{{ old('customer_street_name') }}">
+                                </div>
+
+                                <div class="col-md-4">
+                                    <label class="form-label">رقم المبنى</label>
+                                    <input type="text"
+                                           name="customer_building_number"
+                                           id="customer_building_number"
+                                           class="form-control standard-invoice-field"
+                                           inputmode="numeric"
+                                           maxlength="4"
+                                           value="{{ old('customer_building_number') }}"
+                                           placeholder="4 أرقام">
+                                </div>
+
+                                <div class="col-md-4">
+                                    <label class="form-label">الرقم الإضافي</label>
+                                    <input type="text"
+                                           name="customer_additional_number"
+                                           id="customer_additional_number"
+                                           class="form-control standard-invoice-field"
+                                           inputmode="numeric"
+                                           maxlength="4"
+                                           value="{{ old('customer_additional_number') }}"
+                                           placeholder="4 أرقام">
+                                </div>
+
+                                <div class="col-md-4">
+                                    <label class="form-label">الرمز البريدي</label>
+                                    <input type="text"
+                                           name="customer_postal_code"
+                                           id="customer_postal_code"
+                                           class="form-control standard-invoice-field"
+                                           inputmode="numeric"
+                                           maxlength="5"
+                                           value="{{ old('customer_postal_code') }}"
+                                           placeholder="5 أرقام">
+                                </div>
+
+                                <input type="hidden" name="customer_address" id="customer_address">
+
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -933,13 +1063,84 @@ $(document).ready(function () {
             if (response.status === 'success') {
                 $('#customer_name').val(response.data.customer_name);
                 $('#customer_mobile').val(response.data.customer_mobile);
+                $('#customer_email').val(response.data.customer_email);
                 $('#customer_tax_number').val(response.data.customer_tax_number);
+                $('#customer_commercial_register').val(
+                    response.data.customer_commercial_register
+                );
+                $('#customer_country_code').val(
+                    response.data.customer_country_code
+                );
+                $('#customer_state').val(response.data.customer_state);
+                $('#customer_city').val(response.data.customer_city);
+                $('#customer_district').val(response.data.customer_district);
+                $('#customer_street_name').val(response.data.customer_street_name);
+                $('#customer_building_number').val(
+                    response.data.customer_building_number
+                );
+                $('#customer_additional_number').val(
+                    response.data.customer_additional_number
+                );
+                $('#customer_postal_code').val(
+                    response.data.customer_postal_code
+                );
                 $('#customer_address').val(response.data.customer_address);
+
+                updateInvoiceClassificationBadge();
             }
 
         });
     });
 
+    function updateInvoiceClassificationBadge() {
+        let hasStandardData = false;
+
+        $('.standard-invoice-field').each(function () {
+            if ($.trim($(this).val()) !== '') {
+                hasStandardData = true;
+                return false;
+            }
+        });
+
+        let badge = $('#invoice_classification_badge');
+
+        if (hasStandardData) {
+            badge
+                .removeClass('bg-secondary')
+                .addClass('bg-primary')
+                .text('فاتورة قياسية');
+        } else {
+            badge
+                .removeClass('bg-primary')
+                .addClass('bg-secondary')
+                .text('فاتورة مبسطة');
+        }
+    }
+
+    $(document).on(
+        'input change',
+        '.standard-invoice-field',
+        updateInvoiceClassificationBadge
+    );
+
+    $('#customer_country_code').on('input', function () {
+        this.value = this.value
+            .replace(/[^a-zA-Z]/g, '')
+            .toUpperCase()
+            .slice(0, 2);
+    });
+
+    $(
+        '#customer_tax_number, ' +
+        '#customer_commercial_register, ' +
+        '#customer_building_number, ' +
+        '#customer_additional_number, ' +
+        '#customer_postal_code'
+    ).on('input', function () {
+        this.value = this.value.replace(/\D/g, '');
+    });
+
+    updateInvoiceClassificationBadge();
 
     function updatePaymentFields() {
 

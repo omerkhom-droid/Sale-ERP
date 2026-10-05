@@ -15,6 +15,8 @@ class PermissionSeeder extends Seeder
         app(PermissionRegistrar::class)->forgetCachedPermissions();
 
         $permissions = [
+            'audit_logs.view',
+            
             'dashboard.view',
 
             'companies.view',

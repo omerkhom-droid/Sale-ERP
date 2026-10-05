@@ -115,6 +115,145 @@
 
     </div>
 
+    @php
+        $zatcaStatus = match ($salesInvoice->zatca_status) {
+            'reported' => [
+                'text' => 'تم الإبلاغ',
+                'class' => 'bg-success',
+            ],
+
+            'cleared' => [
+                'text' => 'تم الاعتماد',
+                'class' => 'bg-success',
+            ],
+
+            'processing' => [
+                'text' => 'جاري الإرسال',
+                'class' => 'bg-warning text-dark',
+            ],
+
+            'failed' => [
+                'text' => 'فشل الإرسال',
+                'class' => 'bg-danger',
+            ],
+
+            default => [
+                'text' => 'لم تُرسل',
+                'class' => 'bg-secondary',
+            ],
+        };
+    @endphp
+
+    <div class="card shadow-sm wazin-card mb-4">
+
+        <div class="card-header wazin-card-header">
+            <div>
+                <h5 class="mb-0 fw-bold">حالة زاتكا</h5>
+                <small>حالة توقيع وإرسال الفاتورة إلى الهيئة</small>
+            </div>
+
+            <span class="badge {{ $zatcaStatus['class'] }}">
+                {{ $zatcaStatus['text'] }}
+            </span>
+        </div>
+
+        <div class="card-body">
+            <div class="row g-3">
+
+                <div class="col-md-3">
+                    <label class="form-label">نوع المعالجة</label>
+                    <div class="readonly-box">
+                        {{ $salesInvoice->invoice_classification === 'standard'
+                            ? 'Clearance — اعتماد'
+                            : 'Reporting — إبلاغ' }}
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label">ICV</label>
+                    <div class="readonly-box ltr-cell">
+                        {{ $salesInvoice->zatca_icv ?? '-' }}
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label">HTTP Status</label>
+                    <div class="readonly-box ltr-cell">
+                        {{ $salesInvoice->zatca_http_status ?? '-' }}
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label">عدد المحاولات</label>
+                    <div class="readonly-box ltr-cell">
+                        {{ $salesInvoice->zatca_attempts ?? 0 }}
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label">UUID</label>
+                    <div class="readonly-box ltr-cell">
+                        {{ $salesInvoice->zatca_uuid ?? '-' }}
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label">Invoice Hash</label>
+                    <div class="readonly-box ltr-cell text-break">
+                        {{ $salesInvoice->zatca_invoice_hash ?? '-' }}
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label">وقت الإرسال</label>
+                    <div class="readonly-box ltr-cell">
+                        {{ $salesInvoice->zatca_sent_at
+                            ? $salesInvoice->zatca_sent_at->format('Y-m-d H:i:s')
+                            : '-' }}
+                    </div>
+                </div>
+
+                @if(filled($salesInvoice->zatca_error))
+                    <div class="col-12">
+                        <div class="alert alert-danger mb-0">
+                            <strong>سبب فشل زاتكا:</strong>
+                            {{ $salesInvoice->zatca_error }}
+                        </div>
+                    </div>
+                @endif
+
+                @if(
+                    $salesInvoice->status === 'posted'
+                    && ! in_array(
+                        $salesInvoice->zatca_status,
+                        ['reported', 'cleared'],
+                        true
+                    )
+                )
+                    <div class="col-12">
+                        @can('sales_invoices.post')
+                            <form method="POST"
+                                  action="{{ route(
+                                      'sales-invoices.zatca-retry',
+                                      $salesInvoice
+                                  ) }}"
+                                  onsubmit="return confirm(
+                                      'هل تريد إعادة إرسال الفاتورة إلى زاتكا؟'
+                                  );">
+                                @csrf
+
+                                <button type="submit"
+                                        class="btn btn-primary">
+                                    إعادة الإرسال إلى زاتكا
+                                </button>
+                            </form>
+                        @endcan
+                    </div>
+                @endif
+
+            </div>
+        </div>
+    </div>
 
     {{-- Invoice Info --}}
     <div class="card shadow-sm wazin-card mb-4">
@@ -200,62 +339,82 @@
     </div>
 
 
-    {{-- Customer Info --}}
-    <div class="card shadow-sm wazin-card mb-4">
+        @php
+            $customerNationalAddress = collect([
+                $salesInvoice->customer_state,
+                $salesInvoice->customer_city,
+                $salesInvoice->customer_district,
+                $salesInvoice->customer_street_name,
+                $salesInvoice->customer_building_number
+                    ? 'مبنى ' . $salesInvoice->customer_building_number
+                    : null,
+                $salesInvoice->customer_postal_code
+                    ? 'الرمز البريدي ' . $salesInvoice->customer_postal_code
+                    : null,
+                $salesInvoice->customer_additional_number
+                    ? 'الرقم الإضافي ' . $salesInvoice->customer_additional_number
+                    : null,
+            ])->filter()->implode(' - ');
+        @endphp
 
-        <div class="card-header wazin-card-header">
-            <div>
-                <h5 class="mb-0 fw-bold">بيانات العميل</h5>
-                <small>بيانات العميل النقدي أو العميل المسجل المرتبط بالفاتورة</small>
-            </div>
-        </div>
+        <div class="card shadow-sm wazin-card mb-4">
 
-        <div class="card-body">
-
-            <div class="row g-3">
-
-                <div class="col-md-3">
-                    <label class="form-label">اسم العميل</label>
-                    <div class="readonly-box">
-                        {{ $salesInvoice->customer_name ?? 'عميل نقدي' }}
-                    </div>
+            <div class="card-header wazin-card-header">
+                <div>
+                    <h5 class="mb-0 fw-bold">بيانات العميل</h5>
+                    <small>بيانات العميل المحفوظة وقت إصدار الفاتورة</small>
                 </div>
 
-                <div class="col-md-3">
-                    <label class="form-label">الجوال</label>
-                    <div class="readonly-box ltr-cell">
-                        {{ $salesInvoice->customer_mobile ?? '-' }}
-                    </div>
-                </div>
-
-                <div class="col-md-3">
-                    <label class="form-label">الرقم الضريبي</label>
-                    <div class="readonly-box ltr-cell">
-                        {{ $salesInvoice->customer_tax_number ?? '-' }}
-                    </div>
-                </div>
-
-                <div class="col-md-3">
-                    <label class="form-label">العميل المسجل</label>
-                    <div class="readonly-box">
-                        {{ $salesInvoice->customer?->customer_name
-                            ?? $salesInvoice->customer?->name
-                            ?? '-' }}
-                    </div>
-                </div>
-
-                <div class="col-md-12">
-                    <label class="form-label">العنوان</label>
-                    <div class="readonly-box notes-box">
-                        {{ $salesInvoice->customer_address ?? '-' }}
-                    </div>
-                </div>
-
+                @if($salesInvoice->invoice_classification === 'standard')
+                    <span class="badge bg-primary">فاتورة قياسية</span>
+                @else
+                    <span class="badge bg-secondary">فاتورة مبسطة</span>
+                @endif
             </div>
 
-        </div>
+            <div class="card-body">
+                <div class="row g-3">
 
-    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">اسم العميل</label>
+                        <div class="readonly-box">
+                            {{ $salesInvoice->customer_name ?? 'عميل نقدي' }}
+                        </div>
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label">الجوال</label>
+                        <div class="readonly-box ltr-cell">
+                            {{ $salesInvoice->customer_mobile ?? '-' }}
+                        </div>
+                    </div>
+
+                    @if($salesInvoice->invoice_classification === 'standard')
+                        <div class="col-md-3">
+                            <label class="form-label">الرقم الضريبي</label>
+                            <div class="readonly-box ltr-cell">
+                                {{ $salesInvoice->customer_tax_number ?? '-' }}
+                            </div>
+                        </div>
+
+                        <div class="col-md-3">
+                            <label class="form-label">السجل التجاري</label>
+                            <div class="readonly-box ltr-cell">
+                                {{ $salesInvoice->customer_commercial_register ?? '-' }}
+                            </div>
+                        </div>
+
+                        <div class="col-md-12">
+                            <label class="form-label">العنوان الوطني</label>
+                            <div class="readonly-box">
+                                {{ $customerNationalAddress ?: '-' }}
+                            </div>
+                        </div>
+                    @endif
+
+                </div>
+            </div>
+        </div>
 
 
     {{-- Items --}}

@@ -57,13 +57,82 @@ class StoreSalesInvoiceRequest extends FormRequest
             /*
                 بيانات العميل النقدي أو نسخة من العميل المسجل.
             */
-            'customer_name' => ['nullable', 'string', 'max:255'],
+            'customer_name' => [
+                'nullable',
+                'string',
+                'max:255',
+            ],
 
-            'customer_mobile' => ['nullable', 'string', 'max:50'],
+            'customer_mobile' => [
+                'nullable',
+                'regex:/^\+?[0-9]{8,15}$/',
+            ],
 
-            'customer_tax_number' => ['nullable', 'string', 'max:50'],
+            'customer_email' => [
+                'nullable',
+                'email:rfc',
+                'max:255',
+            ],
 
-            'customer_address' => ['nullable', 'string'],
+            'customer_tax_number' => [
+                'nullable',
+                'regex:/^3[0-9]{13}3$/',
+            ],
+
+            'customer_commercial_register' => [
+                'nullable',
+                'digits:10',
+            ],
+
+            'customer_country_code' => [
+                'nullable',
+                'regex:/^[A-Za-z]{2}$/',
+            ],
+
+            'customer_state' => [
+                'nullable',
+                'string',
+                'max:127',
+            ],
+
+            'customer_city' => [
+                'nullable',
+                'string',
+                'max:127',
+            ],
+
+            'customer_district' => [
+                'nullable',
+                'string',
+                'max:127',
+            ],
+
+            'customer_street_name' => [
+                'nullable',
+                'string',
+                'max:127',
+            ],
+
+            'customer_building_number' => [
+                'nullable',
+                'digits:4',
+            ],
+
+            'customer_additional_number' => [
+                'nullable',
+                'digits:4',
+            ],
+
+            'customer_postal_code' => [
+                'nullable',
+                'digits:5',
+            ],
+
+            'customer_address' => [
+                'nullable',
+                'string',
+                'max:1000',
+            ],
 
             /*
                 نوع الدفع:
@@ -127,6 +196,55 @@ class StoreSalesInvoiceRequest extends FormRequest
             $customerId = $this->input('customer_id');
             $paidAmount = (float) $this->input('paid_amount', 0);
 
+            $standardInvoiceFields = [
+                'customer_tax_number',
+                'customer_commercial_register',
+                'customer_country_code',
+                'customer_state',
+                'customer_city',
+                'customer_district',
+                'customer_street_name',
+                'customer_building_number',
+                'customer_additional_number',
+                'customer_postal_code',
+            ];
+
+            $hasStandardInvoiceData = collect($standardInvoiceFields)
+                ->contains(function (string $field) {
+                    return filled($this->input($field));
+                });
+
+            if ($hasStandardInvoiceData) {
+                $requiredStandardFields = [
+                    'customer_name' => 'اسم العميل',
+                    'customer_country_code' => 'الدولة',
+                    'customer_city' => 'المدينة',
+                    'customer_district' => 'الحي',
+                    'customer_street_name' => 'اسم الشارع',
+                    'customer_building_number' => 'رقم المبنى',
+                    'customer_postal_code' => 'الرمز البريدي',
+                ];
+
+                foreach ($requiredStandardFields as $field => $label) {
+                    if (blank($this->input($field))) {
+                        $validator->errors()->add(
+                            $field,
+                            "حقل {$label} مطلوب لإصدار فاتورة قياسية."
+                        );
+                    }
+                }
+
+                if (
+                    blank($this->input('customer_tax_number'))
+                    && blank($this->input('customer_commercial_register'))
+                ) {
+                    $validator->errors()->add(
+                        'customer_tax_number',
+                        'للفاتورة القياسية يجب إدخال الرقم الضريبي أو السجل التجاري للعميل.'
+                    );
+                }
+            }
+
             /*
             |--------------------------------------------------------------------------
             | العميل الآجل يجب أن يكون محفوظاً
@@ -167,19 +285,6 @@ class StoreSalesInvoiceRequest extends FormRequest
 
             /*
             |--------------------------------------------------------------------------
-            | إذا نوع الدفع نقدي بالكامل
-            |--------------------------------------------------------------------------
-            | لا نسمح أن يكون customer_type = credit.
-            */
-            if ($paymentType === 'cash' && $customerType === 'credit') {
-                $validator->errors()->add(
-                    'customer_type',
-                    'إذا كانت الفاتورة نقدية بالكامل، اجعل نوع العميل نقدي.'
-                );
-            }
-
-            /*
-            |--------------------------------------------------------------------------
             | الفاتورة الجزئية يجب أن تحتوي مبلغ مدفوع
             |--------------------------------------------------------------------------
             */
@@ -206,6 +311,30 @@ class StoreSalesInvoiceRequest extends FormRequest
             'customer_type.required' => 'يرجى تحديد نوع العميل.',
             'customer_type.in' => 'نوع العميل غير صحيح.',
 
+            'customer_mobile.regex' =>
+                'رقم جوال العميل غير صحيح، ويجب أن يحتوي من 8 إلى 15 رقماً.',
+
+            'customer_email.email' =>
+                'البريد الإلكتروني للعميل غير صحيح.',
+
+            'customer_tax_number.regex' =>
+                'الرقم الضريبي يجب أن يتكون من 15 رقماً ويبدأ وينتهي بالرقم 3.',
+
+            'customer_commercial_register.digits' =>
+                'السجل التجاري يجب أن يتكون من 10 أرقام.',
+
+            'customer_country_code.regex' =>
+                'رمز الدولة يجب أن يتكون من حرفين، مثل SA.',
+
+            'customer_building_number.digits' =>
+                'رقم المبنى يجب أن يتكون من 4 أرقام.',
+
+            'customer_additional_number.digits' =>
+                'الرقم الإضافي يجب أن يتكون من 4 أرقام.',
+
+            'customer_postal_code.digits' =>
+                'الرمز البريدي يجب أن يتكون من 5 أرقام.',
+                
             'payment_type.required' => 'يرجى تحديد نوع الدفع.',
             'payment_type.in' => 'نوع الدفع غير صحيح.',
 

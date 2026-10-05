@@ -148,6 +148,37 @@ class OpeningStockBalanceService
                 );
             }
 
+            /*
+            |--------------------------------------------------------------------------
+            | سجل النشاط
+            |--------------------------------------------------------------------------
+            */
+            app(\App\Services\AuditLogService::class)->log(
+                action: 'create',
+                module: 'Opening Stock Balance',
+                description: 'تم إضافة رصيد افتتاحي للمخزون رقم ' . $transactionNo,
+                model: $openingBalance,
+                newValues: [
+                    'transaction_no' => $transactionNo,
+                    'product_id' => $openingBalance->product_id,
+                    'warehouse_id' => $openingBalance->warehouse_id,
+                    'product_unit_id' => $openingBalance->product_unit_id,
+
+                    'quantity' => $openingBalance->quantity,
+                    'base_quantity' => $openingBalance->base_quantity,
+
+                    'unit_cost' => $openingBalance->unit_cost,
+                    'total_cost' => $openingBalance->total_cost,
+
+                    'balance_before' => $balanceBefore,
+                    'balance_after' => $balanceAfter,
+
+                    'average_cost_before' => $oldAverageCost,
+                    'average_cost_after' => $newAverageCost,
+                ],
+                branchId: $branchId
+            );
+
             return $openingBalance;
         });
     }

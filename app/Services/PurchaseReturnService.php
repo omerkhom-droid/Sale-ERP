@@ -297,6 +297,26 @@ class PurchaseReturnService
             */
             $this->updateInvoiceReturnStatus($invoice);
 
+            app(\App\Services\AuditLogService::class)->log(
+                action: 'post',
+                module: 'Purchase Return',
+                description: 'تم ترحيل مردود مشتريات رقم ' . $purchaseReturn->return_no,
+                model: $purchaseReturn,
+                newValues: [
+                    'return_no' => $purchaseReturn->return_no,
+                    'purchase_invoice_id' => $purchaseReturn->purchase_invoice_id,
+                    'supplier_id' => $purchaseReturn->supplier_id,
+                    'branch_id' => $purchaseReturn->branch_id,
+                    'warehouse_id' => $purchaseReturn->warehouse_id,
+                    'return_date' => $purchaseReturn->return_date,
+                    'subtotal' => $purchaseReturn->subtotal,
+                    'vat_amount' => $purchaseReturn->vat_amount,
+                    'total_amount' => $purchaseReturn->total_amount,
+                    'status' => $purchaseReturn->status,
+                ],
+                branchId: $purchaseReturn->branch_id
+            );
+
             return $purchaseReturn->fresh([
                 'invoice',
                 'supplier',
@@ -346,6 +366,26 @@ class PurchaseReturnService
                     'cancel_reason' => $reason,
                 ]);
 
+                app(\App\Services\AuditLogService::class)->log(
+                    action: 'cancel',
+                    module: 'Purchase Return',
+                    description: 'تم إلغاء مردود مشتريات مسودة رقم ' . $purchaseReturn->return_no,
+                    model: $purchaseReturn,
+                    oldValues: [
+                        'status' => 'draft',
+                        'return_no' => $purchaseReturn->return_no,
+                        'purchase_invoice_id' => $purchaseReturn->purchase_invoice_id,
+                        'supplier_id' => $purchaseReturn->supplier_id,
+                        'total_amount' => $purchaseReturn->total_amount,
+                    ],
+                    newValues: [
+                        'status' => 'cancelled',
+                        'cancel_reason' => $reason,
+                        'cancelled_at' => now(),
+                    ],
+                    branchId: $purchaseReturn->branch_id
+                );
+                
                 return $purchaseReturn->fresh();
             }
 
@@ -393,6 +433,29 @@ class PurchaseReturnService
             if ($purchaseReturn->invoice) {
                 $this->updateInvoiceReturnStatus($purchaseReturn->invoice);
             }
+
+            app(\App\Services\AuditLogService::class)->log(
+                action: 'cancel',
+                module: 'Purchase Return',
+                description: 'تم إلغاء مردود مشتريات مرحل رقم ' . $purchaseReturn->return_no,
+                model: $purchaseReturn,
+                oldValues: [
+                    'status' => 'posted',
+                    'return_no' => $purchaseReturn->return_no,
+                    'purchase_invoice_id' => $purchaseReturn->purchase_invoice_id,
+                    'supplier_id' => $purchaseReturn->supplier_id,
+                    'warehouse_id' => $purchaseReturn->warehouse_id,
+                    'subtotal' => $purchaseReturn->subtotal,
+                    'vat_amount' => $purchaseReturn->vat_amount,
+                    'total_amount' => $purchaseReturn->total_amount,
+                ],
+                newValues: [
+                    'status' => 'cancelled',
+                    'cancel_reason' => $reason,
+                    'cancelled_at' => now(),
+                ],
+                branchId: $purchaseReturn->branch_id
+            );
 
             return $purchaseReturn->fresh([
                 'invoice',

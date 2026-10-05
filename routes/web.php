@@ -59,6 +59,10 @@ use App\Http\Controllers\PosSettingController;
 
 use App\Http\Controllers\AjaxLookupController;
 
+use App\Http\Controllers\AuditLogController;
+
+use App\Http\Controllers\ZatcaDeviceController;
+use App\Http\Controllers\ZatcaComplianceController;
 
 Route::get('/', function () {
     return view('welcome');
@@ -115,6 +119,16 @@ Route::middleware(['auth', 'active.user', 'branch.access', 'license.valid'])->gr
         Route::delete('/{id}/attachments/{attachment}', [WorkshopController::class, 'deleteAttachment'])->middleware('permission:workshop.manage')->where(['id' => '[0-9]+', 'attachment' => '[0-9]+'])->name('attachments.destroy');
     });
 
+    /*
+    |--------------------------------------------------------------------------
+    | Audit Logs
+    |--------------------------------------------------------------------------
+    */
+
+    Route::get('/audit-logs', [AuditLogController::class, 'index'])
+        ->middleware('permission:audit_logs.view')
+        ->name('audit-logs.index');
+        
     /*
     |--------------------------------------------------------------------------
     | Users
@@ -803,6 +817,14 @@ Route::middleware(['auth', 'active.user', 'branch.access', 'license.valid'])->gr
         ->middleware('permission:sales_invoices.post')
         ->name('sales-invoices.post');
 
+    Route::post(
+        '/sales-invoices/{salesInvoice}/zatca-retry',
+        [SalesInvoiceController::class, 'retryZatca']
+    )
+        ->middleware('permission:sales_invoices.post')
+        ->whereNumber('salesInvoice')
+        ->name('sales-invoices.zatca-retry');
+        
     Route::post('/sales-invoices/{salesInvoice}/cancel', [SalesInvoiceController::class, 'cancel'])
         ->middleware('permission:sales_invoices.cancel')
         ->name('sales-invoices.cancel');
@@ -1273,6 +1295,55 @@ Route::middleware(['auth', 'active.user', 'branch.access', 'license.valid'])->gr
         });
 
     });
+
+
+
+    Route::prefix('zatca')
+        ->name('zatca.')
+        ->group(function () {
+
+            Route::get(
+                '/devices',
+                [ZatcaDeviceController::class, 'index']
+            )->name('devices.index');
+
+            Route::get(
+                '/devices/create',
+                [ZatcaDeviceController::class, 'create']
+            )->name('devices.create');
+
+            Route::post(
+                '/devices',
+                [ZatcaDeviceController::class, 'store']
+            )->name('devices.store');
+
+            Route::post(
+                '/devices/{device}/generate-csr',
+                [ZatcaDeviceController::class, 'generateCsr']
+            )->name('devices.generate-csr');
+            
+            Route::post(
+                '/devices/{device}/compliance',
+                [ZatcaDeviceController::class, 'requestCompliance']
+            )->name('devices.compliance');
+
+            Route::post(
+                '/devices/{device}/toggle-auto-submit',
+                [ZatcaDeviceController::class, 'toggleAutoSubmit']
+            )->name('devices.toggle-auto-submit');
+
+            Route::get('/devices/{device}/compliance-tests', [ZatcaComplianceController::class, 'show'])
+                ->whereNumber('device')->name('devices.compliance-tests');
+            Route::post('/devices/{device}/compliance-tests/prepare', [ZatcaComplianceController::class, 'prepare'])
+                ->whereNumber('device')->name('devices.compliance-tests.prepare');
+            Route::post('/devices/{device}/compliance-tests/run/{test}', [ZatcaComplianceController::class, 'run'])
+                ->whereNumber('device')->name('devices.compliance-tests.run');
+            Route::post('/devices/{device}/compliance-tests/production', [ZatcaComplianceController::class, 'production'])
+                ->whereNumber('device')->name('devices.compliance-tests.production');
+
+
+        });
+        
 
 });
 

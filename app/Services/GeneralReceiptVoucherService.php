@@ -84,6 +84,26 @@ class GeneralReceiptVoucherService
                 'posted_by' => auth()->id(),
             ]);
 
+            app(\App\Services\AuditLogService::class)->log(
+                action: 'post',
+                module: 'General Receipt Voucher',
+                description: 'تم ترحيل سند قبض عام رقم ' . $voucher->voucher_no,
+                model: $voucher,
+                newValues: [
+                    'voucher_no' => $voucher->voucher_no,
+                    'branch_id' => $voucher->branch_id,
+                    'cost_center_id' => $voucher->cost_center_id,
+                    'voucher_date' => $voucher->voucher_date,
+                    'payment_method' => $voucher->payment_method,
+                    'cash_bank_account_id' => $voucher->cash_bank_account_id,
+                    'opposite_account_id' => $voucher->opposite_account_id,
+                    'amount' => $voucher->amount,
+                    'payer_name' => $voucher->payer_name,
+                    'status' => $voucher->status,
+                ],
+                branchId: $voucher->branch_id
+            );
+
             return $voucher->fresh([
                 'branch',
                 'costCenter',
@@ -112,6 +132,25 @@ class GeneralReceiptVoucherService
                     'cancel_reason' => $reason,
                 ]);
 
+
+                app(\App\Services\AuditLogService::class)->log(
+                    action: 'cancel',
+                    module: 'General Receipt Voucher',
+                    description: 'تم إلغاء سند قبض عام مسودة رقم ' . $voucher->voucher_no,
+                    model: $voucher,
+                    oldValues: [
+                        'status' => 'draft',
+                        'voucher_no' => $voucher->voucher_no,
+                        'amount' => $voucher->amount,
+                    ],
+                    newValues: [
+                        'status' => 'cancelled',
+                        'cancel_reason' => $reason,
+                        'cancelled_at' => now(),
+                    ],
+                    branchId: $voucher->branch_id
+                );
+                
                 return $voucher->fresh();
             }
 
@@ -129,6 +168,24 @@ class GeneralReceiptVoucherService
                 'cancelled_by' => auth()->id(),
                 'cancel_reason' => $reason,
             ]);
+
+            app(\App\Services\AuditLogService::class)->log(
+                action: 'cancel',
+                module: 'General Receipt Voucher',
+                description: 'تم إلغاء سند قبض عام مرحل رقم ' . $voucher->voucher_no,
+                model: $voucher,
+                oldValues: [
+                    'status' => 'posted',
+                    'voucher_no' => $voucher->voucher_no,
+                    'amount' => $voucher->amount,
+                ],
+                newValues: [
+                    'status' => 'cancelled',
+                    'cancel_reason' => $reason,
+                    'cancelled_at' => now(),
+                ],
+                branchId: $voucher->branch_id
+            );
 
             return $voucher->fresh([
                 'branch',

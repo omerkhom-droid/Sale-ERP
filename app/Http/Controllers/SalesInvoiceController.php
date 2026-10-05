@@ -14,6 +14,7 @@ use App\Services\SalesInvoiceService;
 use Exception;
 use Illuminate\Http\Request;
 use Yajra\DataTables\Facades\DataTables;
+use App\Services\Zatca\ZatcaSalesInvoiceSubmissionService;
 
 class SalesInvoiceController extends Controller
 {
@@ -295,6 +296,31 @@ class SalesInvoiceController extends Controller
             مع التأكد أن المستودع يتبع نفس الفرع.
         */
         $data['branch_id'] = $branchId ?: $warehouse->branch_id;
+        $data['customer_country_code'] = strtoupper(
+            trim((string) ($data['customer_country_code'] ?? ''))
+        );
+
+        $standardInvoiceFields = [
+            'customer_tax_number',
+            'customer_commercial_register',
+            'customer_country_code',
+            'customer_state',
+            'customer_city',
+            'customer_district',
+            'customer_street_name',
+            'customer_building_number',
+            'customer_additional_number',
+            'customer_postal_code',
+        ];
+
+        $hasStandardInvoiceData = collect($standardInvoiceFields)
+            ->contains(function (string $field) use ($data) {
+                return filled($data[$field] ?? null);
+            });
+
+        $data['invoice_classification'] = $hasStandardInvoiceData
+            ? 'standard'
+            : 'simplified';
 
         return $data;
     }
@@ -543,11 +569,88 @@ class SalesInvoiceController extends Controller
                 ->route('sales-invoices.show', $salesInvoice->id)
                 ->with('success', 'تم ترحيل فاتورة البيع بنجاح.');
 
-        } catch (Exception $e) {
+        } catch (\Throwable $e) {
+            $salesInvoice->refresh();
+
+            if ($salesInvoice->status === 'posted') {
+                return redirect()
+                    ->route(
+                        'sales-invoices.show',
+                        $salesInvoice->id
+                    )
+                    ->with(
+                        'error',
+                        'تم ترحيل الفاتورة محاسبياً، لكن تعذر إرسالها إلى زاتكا: '
+                        . $e->getMessage()
+                    );
+            }
+
             return back()
                 ->with('error', $e->getMessage());
         }
     }
+
+
+    public function retryZatca(
+        SalesInvoice $salesInvoice,
+        ZatcaSalesInvoiceSubmissionService
+            $zatcaSubmissionService
+    ) {
+        $this->assertInvoiceAccess(
+            $salesInvoice
+        );
+
+        if ($salesInvoice->status !== 'posted') {
+            return back()->with(
+                'error',
+                'لا يمكن إرسال فاتورة غير مرحلة إلى زاتكا.'
+            );
+        }
+
+        if (
+            in_array(
+                $salesInvoice->zatca_status,
+                ['reported', 'cleared'],
+                true
+            )
+        ) {
+            return back()->with(
+                'success',
+                'الفاتورة مقبولة في زاتكا مسبقاً.'
+            );
+        }
+
+        try {
+            $zatcaSubmissionService->submit(
+                $salesInvoice
+            );
+
+            return redirect()
+                ->route(
+                    'sales-invoices.show',
+                    $salesInvoice->id
+                )
+                ->with(
+                    'success',
+                    $salesInvoice->invoice_classification
+                        === 'standard'
+                        ? 'تم اعتماد الفاتورة القياسية من زاتكا بنجاح.'
+                        : 'تم الإبلاغ عن الفاتورة المبسطة إلى زاتكا بنجاح.'
+                );
+        } catch (\Throwable $exception) {
+            return redirect()
+                ->route(
+                    'sales-invoices.show',
+                    $salesInvoice->id
+                )
+                ->with(
+                    'error',
+                    'تعذر إرسال الفاتورة إلى زاتكا: '
+                    . $exception->getMessage()
+                );
+        }
+    }
+
 
     public function cancel(
         Request $request,
@@ -650,23 +753,47 @@ class SalesInvoiceController extends Controller
         return response()->json([
             'status' => 'success',
             'data' => [
-                'customer_name' => $customer->customer_name
-                    ?? $customer->name
-                    ?? $customer->fullname
-                    ?? '',
+                'customer_name' =>
+                    $customer->customer_name ?? '',
 
-                'customer_mobile' => $customer->mobile
-                    ?? $customer->phone
-                    ?? '',
+                'customer_mobile' =>
+                    $customer->phone ?? '',
 
-                'customer_tax_number' => $customer->tax_registration_number
-                    ?? $customer->tax_number
-                    ?? $customer->vat_number
-                    ?? '',
+                'customer_email' =>
+                    $customer->email ?? '',
 
-                'customer_address' => $customer->address
-                    ?? $customer->full_address
-                    ?? '',
+                'customer_tax_number' =>
+                    $customer->tax_number ?? '',
+
+                'customer_commercial_register' =>
+                    $customer->commercial_register ?? '',
+
+                'customer_country_code' =>
+                    strtoupper($customer->country_code ?? 'SA'),
+
+                'customer_state' =>
+                    $customer->state ?? '',
+
+                'customer_city' =>
+                    $customer->city ?? '',
+
+                'customer_district' =>
+                    $customer->district ?? '',
+
+                'customer_street_name' =>
+                    $customer->street_name ?? '',
+
+                'customer_building_number' =>
+                    $customer->building_number ?? '',
+
+                'customer_additional_number' =>
+                    $customer->additional_number ?? '',
+
+                'customer_postal_code' =>
+                    $customer->postal_code ?? '',
+
+                'customer_address' =>
+                    $customer->address ?? '',
             ],
         ]);
     }

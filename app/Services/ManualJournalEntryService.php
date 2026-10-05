@@ -78,6 +78,21 @@ class ManualJournalEntryService
                 throw new Exception('يجب إدخال سطر واحد على الأقل.');
             }
 
+            app(\App\Services\AuditLogService::class)->log(
+                action: 'create',
+                module: 'Manual Journal Entry',
+                description: 'تم إنشاء مسودة قيد يومية يدوي رقم ' . $manualEntry->manual_no,
+                model: $manualEntry,
+                newValues: [
+                    'manual_no' => $manualEntry->manual_no,
+                    'manual_date' => $manualEntry->manual_date,
+                    'branch_id' => $manualEntry->branch_id,
+                    'status' => $manualEntry->status,
+                    'lines_count' => $manualEntry->lines()->count(),
+                ],
+                branchId: $manualEntry->branch_id
+            );
+
             return $manualEntry;
         });
     }
@@ -196,6 +211,28 @@ class ManualJournalEntryService
                 'posted_at' => now(),
             ]);
 
+
+            app(\App\Services\AuditLogService::class)->log(
+                action: 'post',
+                module: 'Manual Journal Entry',
+                description: 'تم ترحيل قيد يومية يدوي رقم ' . $manualEntry->manual_no,
+                model: $manualEntry,
+                oldValues: [
+                    'status' => 'draft',
+                ],
+                newValues: [
+                    'manual_no' => $manualEntry->manual_no,
+                    'manual_date' => $manualEntry->manual_date,
+                    'branch_id' => $manualEntry->branch_id,
+                    'status' => $manualEntry->status,
+                    'posted_by' => $manualEntry->posted_by,
+                    'posted_at' => $manualEntry->posted_at,
+                    'total_debit' => $totalDebit,
+                    'total_credit' => $totalCredit,
+                ],
+                branchId: $manualEntry->branch_id
+            );
+
             return $manualEntry;
         });
     }
@@ -213,9 +250,16 @@ class ManualJournalEntryService
                 ->where('reference_id', $manualEntry->id)
                 ->get();
 
+            $oldValues = [
+                'status' => $manualEntry->status,
+                'manual_no' => $manualEntry->manual_no,
+                'manual_date' => $manualEntry->manual_date,
+            ];
+
             foreach ($journalEntries as $entry) {
                 app(JournalEntryService::class)->reverse($entry);
             }
+
 
             $manualEntry->update([
                 'status' => 'cancelled',
@@ -223,6 +267,21 @@ class ManualJournalEntryService
                 'cancelled_at' => now(),
                 'cancellation_reason' => $reason,
             ]);
+
+            app(\App\Services\AuditLogService::class)->log(
+                action: 'cancel',
+                module: 'Manual Journal Entry',
+                description: 'تم إلغاء قيد يومية يدوي رقم ' . $manualEntry->manual_no,
+                model: $manualEntry,
+                oldValues: $oldValues,
+                newValues: [
+                    'status' => $manualEntry->status,
+                    'cancelled_by' => $manualEntry->cancelled_by,
+                    'cancelled_at' => $manualEntry->cancelled_at,
+                    'cancellation_reason' => $manualEntry->cancellation_reason,
+                ],
+                branchId: $manualEntry->branch_id
+            );
 
             return $manualEntry;
         });
