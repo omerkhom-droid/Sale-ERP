@@ -1,0 +1,11 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>{{ $title }}</title>
+<style>body{font-family:Tahoma,Arial,sans-serif;font-size:12px;color:#111;margin:20px}h2{text-align:center}table{width:100%;border-collapse:collapse;margin-top:15px}th,td{border:1px solid #444;padding:7px;text-align:center}th{background:#e7edf3}thead{display:table-header-group}tr{break-inside:avoid}.summary{display:flex;gap:15px;flex-wrap:wrap;margin:18px 0}@page{size:A4 landscape;margin:12mm}@media print{.no-print{display:none}}</style>
+</head><body>
+<button class="no-print" onclick="window.print()">طباعة</button><h2>{{ $title }}</h2>
+<p>{{ $kind === 'monthly' ? 'السنة: '.$filters['year'] : 'الفترة: '.$filters['date_from'].' إلى '.$filters['date_to'] }} — {{ $filters['net_returns'] ? 'بعد خصم المرتجعات بتاريخها' : 'المبيعات قبل المرتجعات' }} — {{ $filters['include_vat'] ? 'عرض المبيعات مع الضريبة' : 'عرض المبيعات دون الضريبة' }}</p>
+<p>الفلاتر: الفرع {{ $filters['branch_id'] ?? 'الكل' }}، العميل {{ $filters['customer_id'] ?? 'الكل' }}، المستخدم {{ $filters['user_id'] ?? 'الكل' }}، البائع {{ $filters['seller_id'] ?? 'الكل' }}، المندوب {{ $filters['representative_id'] ?? 'الكل' }}، الماركة {{ $filters['brand_id'] ?? 'الكل' }}، نوع السداد {{ $service->display('payment_type', $filters['payment_type'] ?? '') ?: 'الكل' }}، طريقة الدفع {{ $service->display('payment_method', $filters['payment_method'] ?? '') }}</p>
+<div class="summary">@foreach(['net'=>'صافي المبيعات دون الضريبة','vat'=>'الضريبة','total'=>'الإجمالي','cost'=>'التكلفة','profit'=>'الربح','percent'=>'نسبة الربح %'] as $key=>$label)<span>{{ $label }}: <strong>{{ number_format($totals[$key],2) }}</strong></span>@endforeach</div>
+<table><thead><tr><th>#</th>@foreach($columns as $label)<th>{{ $label }}</th>@endforeach</tr></thead><tbody>
+@forelse($rows as $row)<tr><td>{{ $loop->iteration }}</td>@foreach($columns as $key=>$label)<td>{{ $service->display($key,$row->$key) }}</td>@endforeach</tr>@empty<tr><td colspan="{{ count($columns)+1 }}">لا توجد نتائج</td></tr>@endforelse
+</tbody></table><p>الربح دون الضريبة. الماركة الحالية للمنتج. السداد الجزئي ضمن الآجل. النقدي غير المسجل مجمع. وقت الطباعة: {{ now()->format('Y-m-d H:i') }}</p>
+</body></html>
